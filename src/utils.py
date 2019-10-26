@@ -12,16 +12,17 @@ def get_filename_from_url(url: str) -> str:
     return url.rsplit("/", 1)[1]
 
 
-def maybe_download(url: str, output_path: PathStr) -> None:
+def maybe_download(url: str, output_path: PathStr, force: bool=False) -> None:
     """ Download if no file with the same name already exists at `output_path`.
     """
     output_path = pathlib.Path(output_path)
-    if not output_path.exists():
+    if force or not output_path.exists():
         logging.info("Downloading")
         request.urlretrieve(url, output_path)
     
 
-def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr) -> None:
+def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
+                force: bool=False) -> None:
     """ Maybe the file at `path_to_zip` to `output_folder`
     
     Unzips the file if there isn't a file with the same name in `output_folder`.
@@ -33,14 +34,15 @@ def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr) -> None:
 
     assert str(path_to_zip).endswith(".zip"), path_to_zip
 
-    if not (output_folder/path_to_zip.name.split(".")[0]).exists():
+    if force or not (output_folder/path_to_zip.name.split(".")[0]).exists():
         logging.info(f"Unzipping to {output_folder}")
         with zipfile.ZipFile(path_to_zip, 'r') as zip_ref:
             zip_ref.extractall(output_folder)
     
     
 def maybe_download_and_unzip(url: str, output_folder: PathStr=None, 
-                             save_zip_where: PathStr=None) -> None:
+                             save_zip_where: PathStr=None, 
+                             force: bool=False) -> None:
     """ Download the file from url & unzip it if necessary.
     
     Downloads the file if there isn't alread a file in `output_folder` with 
@@ -57,9 +59,9 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
     filename = get_filename_from_url(url)
     
     # Don't redownload the zip if the unzipped version already exists
-    if not (output_folder/filename.split(".")[0]).exists():
+    if force or not (output_folder/filename.split(".")[0]).exists():
         logging.info(f"Maybe downloading {url}")
-        maybe_download(url, save_zip_where/filename)
+        maybe_download(url, save_zip_where/filename, force)
 
         logging.info(f"Maybe unzipping {filename}")
-        maybe_unzip(save_zip_where/filename, output_folder)
+        maybe_unzip(save_zip_where/filename, output_folder, force)

@@ -1,6 +1,10 @@
 """ Extracts the lines from the SocialIQA training set. 
+
+Downloads the dataset if it doesn't already exist, unzips it if it needs to,
+then extracts the lines.
+
 Usage:
-    python 
+    python src/extract_socialiqa.py 
 """
 
 import argparse
@@ -10,11 +14,10 @@ import logging
 import utils
 
 URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip"
-TMP = pathlib.Path("/tmp/")
 
 def main(args: argparse.Namespace):
     args.fields = set(args.fields)
-    utils.maybe_download_and_unzip(URL, TMP)
+    utils.maybe_download_and_unzip(URL, args.tmp_dir, force=args.force)
 
     with open(args.input_path) as fin, open(args.output_path, "w") as fout:
         for line in fin:
@@ -51,9 +54,17 @@ if __name__ == "__main__":
                         """)
     parser.add_argument("--input_path", "-ip", 
                         default=pathlib.Path("/tmp/socialiqa-train-dev/train.jsonl"),
-                        type=pathlib.Path)
+                        type=pathlib.Path,
+                        help="Location of the jsonl with the training examples.")
     parser.add_argument("--output_path", "-op", 
-                        default=pathlib.Path("socialiqa-train-output.txt"), type=pathlib.Path)                      
+                        default=pathlib.Path("socialiqa-train-output.txt"), type=pathlib.Path,
+                        help="Where the final text file is saved.")
+    parser.add_argument("--tmp_dir", "-td",
+                        default=pathlib.Path("/tmp/"), 
+                        type=pathlib.Path, 
+                        help="Where the zip is downloaded and unzipped.")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="Force redownloading & reunzipping")
     args = parser.parse_args()
 
     # Logging
@@ -62,5 +73,4 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(args.verbosity)
     
-
     main(args)
