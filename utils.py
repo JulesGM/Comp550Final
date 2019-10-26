@@ -45,10 +45,11 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr="") -> None:
     Downloads the file if there isn't alread a file in `output_folder` with 
     the same name, zipped or unzipped. Unzips the file if it downloads it.
     """
+    output_folder = pathlib.Path(output_folder)
     filename = get_filename_from_url(url)
     
     # Don't redownload the zip if the unzipped version already exists
-    if not (output_folder/filename.name.split(".")[0]).exists():
+    if not (output_folder/filename.split(".")[0]).exists():
         logging.info(f"Maybe downloading {url}")
         maybe_download(url, filename)
 
