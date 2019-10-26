@@ -39,19 +39,27 @@ def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr) -> None:
             zip_ref.extractall(output_folder)
     
     
-def maybe_download_and_unzip(url: str, output_folder: PathStr="") -> None:
+def maybe_download_and_unzip(url: str, output_folder: PathStr=None, 
+                             save_zip_where: PathStr=None) -> None:
     """ Download the file from url & unzip it if necessary.
     
     Downloads the file if there isn't alread a file in `output_folder` with 
     the same name, zipped or unzipped. Unzips the file if it downloads it.
     """
+    if not output_folder:
+        output_folder = pathlib.Path.cwd().resolve()
     output_folder = pathlib.Path(output_folder)
+
+    if save_zip_where:
+        save_zip_where = pathlib.Path(save_zip_where)
+    else:
+        save_zip_where = output_folder
     filename = get_filename_from_url(url)
     
     # Don't redownload the zip if the unzipped version already exists
     if not (output_folder/filename.split(".")[0]).exists():
         logging.info(f"Maybe downloading {url}")
-        maybe_download(url, filename)
+        maybe_download(url, save_zip_where/filename)
 
         logging.info(f"Maybe unzipping {filename}")
-        maybe_unzip(filename, output_folder)
+        maybe_unzip(save_zip_where/filename, output_folder)
