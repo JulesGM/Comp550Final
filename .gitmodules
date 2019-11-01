@@ -1,0 +1,3 @@
+[submodule "datasets/bookcorpus"]
+	path = datasets/bookcorpus
+	url = https://github.com/soskek/bookcorpus.git
