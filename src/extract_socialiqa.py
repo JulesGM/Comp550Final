@@ -8,9 +8,9 @@ Usage:
 """
 
 import argparse
-import pathlib
 import json
 import logging
+import pathlib
 import utils
 
 URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip"
