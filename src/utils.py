@@ -1,7 +1,7 @@
 import argparse
 import logging
 import pathlib
-from typing import Union
+from typing import Union, Iterable
 from urllib import request
 import zipfile
 
@@ -67,8 +67,47 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
         logging.info(f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
-def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)):
-    logging.log(log_level, 
-                "Args:\n\t-" + "\n\t-".join(f"{k}: {v}" for k, v in vars(args)))
 
-                
+def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)):
+    before_entry = "\n\t- "
+    logging.log(log_level, 
+                f"Args:{before_entry}" + before_entry.join((f"{k}: {v}" 
+                for k, v in vars(args).items())))
+
+
+def count_len_iter(iterable: Iterable, force_count: bool=False) -> int:
+    """Counts the items of an iterable. May not return if the iterable has no end.
+    Some iterables (like text files) don't have an easy way to query their 
+    length, you need to actually count the elements.
+    `force_count` forces the function to actually count the elements instead of just
+    callen len.
+    """
+    if hasattr(iterable, "__len__") and not force_count:
+        return len(iterable)
+
+    return sum(1 for _ in iterable)
+
+
+def count_lines(path: PathStr):
+    with open(path) as fin:
+        return count_len_iter(fin)
+
+
+if __name__ == "__main__":
+    """These are tests for the utils.
+    """
+    FORMAT = '%(message)s'
+    logging.basicConfig(format=FORMAT)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
+    # log_args:
+    args = argparse.Namespace(potato="apple", addresses=["mars", "saturn"], 
+                              phone_number=31415926535)
+    log_args(args)
+    
+    # count_len_iter:
+    # with __len__
+    assert count_len_iter([123, 321, 22]) == 3
+    # without __len__
+    assert count_len_iter((x for x in range(33))) == 33
