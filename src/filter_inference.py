@@ -1,3 +1,11 @@
+"""Filters the unlabeled dataset.
+1. Loads the model from a json config file,
+2. In a loop:
+    a) Read an input file
+    b) Calls the "filter" function of the filter model
+    c) After SAMPLES_PER_OUTPUT_FILE samples, writes the filtered data to a file.
+       Seperates the data in a few different files.
+"""
 # Standard imports
 import argparse
 import json
@@ -115,6 +123,7 @@ def main(args: argparse.Namespace):
             np.save(pathlib.Path(str(args.output_data_path_prefix) + f"_{i}"),          
                     output_samples)
             logging.debug(f"Saved {i}.")
+            i += 1
 
             if active_output_sample_count > SAMPLES_PER_OUTPUT_FILE:
                 stack = [concatenated_samples[SAMPLES_PER_OUTPUT_FILE:]]
