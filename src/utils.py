@@ -67,8 +67,8 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
         logging.info(f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
-def print_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)):
+def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)):
     logging.log(log_level, 
                 "Args:\n\t-" + "\n\t-".join(f"{k}: {v}" for k, v in vars(args)))
-                
+
                 

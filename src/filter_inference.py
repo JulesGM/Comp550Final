@@ -1,18 +1,18 @@
 # Standard imports
 import argparse
-import dataclasses
 import json
 import logging
-import numpy as np
 import pathlib
 import pickle
-from typing import Dict, List, Set, Sequence, Union
-import utils
 
 # Third-party imports
+import numpy as np
 import nptyping # Just a library to allow type annotations with Numpy
 from sklearn import naive_bayes
 import tqdm
+
+# Our imports
+import utils
 
 SAMPLES_PER_OUTPUT_FILE = 1000
 
@@ -66,7 +66,7 @@ class NBCFilter(FilterInferenceBase):
 
 
     def filter(self, sample: nptyping.Array[np.int]
-    ) -> nptyping.Array[np.bool]:
+               ) -> nptyping.Array[np.bool]:
         # TODO(julesgm, im-ant): We should likely do mini-batches.
         return self._model.predict(sample)
 
@@ -74,10 +74,10 @@ class NBCFilter(FilterInferenceBase):
 FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,             
                   # hand_written_rules=HandWrittenRulesFilter,
                   # etc.
-                )
+                  )
 
 def main(args: argparse.Namespace):
-    utils.print_args(args)
+    utils.log_args(args)
     ###########################################################################
     # 1. Load filter
     ###########################################################################
@@ -107,8 +107,8 @@ def main(args: argparse.Namespace):
         active_output_sample_count += len(new_output_samples)
 
         if active_output_sample_count >= SAMPLES_PER_OUTPUT_FILE:
-            samples: nptyping.Array[np.int] = np.concatenate(stack)
-            output_samples = samples[:SAMPLES_PER_OUTPUT_FILE]
+            concatenated_samples = np.concatenate(stack)
+            output_samples = concatenated_samples[:SAMPLES_PER_OUTPUT_FILE]
 
             # Awkward addition of a suffix. We are saving to different files.
             logging.debug(f"Saving {i}.")
@@ -117,7 +117,7 @@ def main(args: argparse.Namespace):
             logging.debug(f"Saved {i}.")
 
             if active_output_sample_count > SAMPLES_PER_OUTPUT_FILE:
-                stack = [samples[SAMPLES_PER_OUTPUT_FILE:]]
+                stack = [concatenated_samples[SAMPLES_PER_OUTPUT_FILE:]]
             else:
                 stack = []
     logging.info("Done.")
