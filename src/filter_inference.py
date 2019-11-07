@@ -70,7 +70,7 @@ class NBCFilter(FilterInferenceBase):
         """
         super().__init__(model_config_path)
         with open(self._model_config["model_pkl_path"], "rb") as fin:
-            self._model: naive_bayes.CategoricalNB = pickle.load(fin)
+            self._model: naive_bayes.MultinomialNB = pickle.load(fin)
 
 
     def filter(self, sample: nptyping.Array[np.int]
