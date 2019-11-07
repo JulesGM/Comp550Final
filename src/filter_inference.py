@@ -17,6 +17,7 @@ import pickle
 import numpy as np
 import nptyping # Just a library to allow type annotations with Numpy
 from sklearn import naive_bayes
+from sklearn import preprocessing
 import tqdm
 
 # Our imports
@@ -40,7 +41,7 @@ class FilterInferenceBase:
     """
     def __init__(self, model_config_path: utils.PathStr):
         with open(model_config_path) as fin:
-            self._model_config = json.load(fin)
+            self._config = json.load(fin)
 
     def filter(self, samples: nptyping.Array[np.int]
                ) -> nptyping.Array[np.bool]:
@@ -69,14 +70,24 @@ class NBCFilter(FilterInferenceBase):
         """ Loads the model.
         """
         super().__init__(model_config_path)
-        with open(self._model_config["model_pkl_path"], "rb") as fin:
+        with open(self._config["model_pkl_path"], "rb") as fin:
             self._model: naive_bayes.MultinomialNB = pickle.load(fin)
 
 
-    def filter(self, sample: nptyping.Array[np.int]
+    def filter(self, samples: nptyping.Array[np.int]
                ) -> nptyping.Array[np.bool]:
+        """Filter the samples.
+        Arguments:
+            samples: 
+                The samples from which we create a mask.
+                We are assuming that they are of size BatchSize x SeqLen
+                They Are indices.
+        """
         # TODO(julesgm, im-ant): We should likely do mini-batches.
-        return self._model.predict(sample)
+        oh_samples = utils.to_categorical(samples, 
+            num_classes=self._config["num_classes"])
+        bow_samples = sum(oh_samples, 1)
+        return self._model.predict(bow_samples)
 
 
 FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,             
