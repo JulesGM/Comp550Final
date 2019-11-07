@@ -63,6 +63,8 @@ class NBCFilter(FilterInferenceBase):
     Expects its Json config file to have:
         - model_pkl_path: Place where we can find the pikle file with the model
           save.
+        - vocab_size: Most models need to know the vocab size; this one is not
+          an exception. 
 
     """
     # TODO(julesgm, im-ant): Should probably be moved to a separate file.
