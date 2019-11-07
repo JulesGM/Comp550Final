@@ -69,9 +69,9 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         x_oh = utils.to_categorical(x, num_classes=self._config["vocab_size"])
         
         # To BOW
-        x = np.sum(x_oh, axis=1)
+        x_bow = np.sum(x_oh, axis=1)
     
-        self._model.fit(x, y)
+        self._model.fit(x_bow, y)
 
     def save(self, path: utils.PathStr):
         logging.info("Saving Model.")
