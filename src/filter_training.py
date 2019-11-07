@@ -63,8 +63,14 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
 
         y = np.concatenate([np.ones(dtype=int, shape=[len(data_from_labeled_set)]),
                             np.zeros(dtype=int, shape=[len(data_from_unlabeled_set)])])
-
         x = np.concatenate([data_from_labeled_set, data_from_unlabeled_set])
+
+        # To One Hot
+        x_oh = utils.to_categorical(x, num_classes=self._config["vocab_size"])
+        
+        # To BOW
+        x = np.sum(x_oh, axis=1)
+    
         self._model.fit(x, y)
 
     def save(self, path: utils.PathStr):
