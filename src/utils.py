@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Union
+from typing import Union, Iterable, Type
 from urllib import request
 import zipfile
 
@@ -65,3 +65,16 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
 
         logging.info(f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
+
+def check_type(obj, types: Union[Iterable[Type], Type]):
+    """Check if an object is one of a few possible types.
+    """ 
+    if not hasattr(types, "__iter__"):
+        types = [types]
+
+    fit_one = any(isinstance(obj, type_) for type_ in types)
+    if not fit_one:
+        raise RuntimeError(f"Expected object to be one of the following types:"
+                           f"{types}. "
+                           f"Got type {type(obj)} instead, which is not "
+                           f"an instance of it.")
