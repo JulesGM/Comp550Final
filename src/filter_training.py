@@ -10,6 +10,7 @@ import json
 import logging
 import pathlib
 import pickle
+from typing import Set
 
 import fire
 import numpy as np
@@ -24,9 +25,19 @@ class FilterAbstractTrainer:
     can be saved. Also requires being able to accept a path in the 
     init to a json configuration file.
     """
-    def __init__(self, config_path: utils.PathStr):
+    def __init__(self, config_path: utils.PathStr, 
+                 expected_json_keys: Set[str] # We require a set to check equality.
+                 ):
+        # Open the file and load the configuration file.
         with open(config_path) as fin:
             self._config = json.load(fin)
+
+        # Verify that the keys of the json file match the expected ones
+        # exactly.
+        if not self._config.keys() == expected_json_keys:
+                raise ValueError(f"Received different keys than expected.\n"
+                                f"Got:      {sorted(expected_json_keys)}\n"
+                                f"Expected: {sorted(self._config)}")
 
     def train(self, data_from_labeled_set, data_from_unlabeled_set):
         """Train the model of the smart filter.
@@ -44,8 +55,13 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """Smart filter using a Naive Bayes Classifier.
     Saves itself with the pickle module. Prototypical implementation.
     """
+    expected_json_keys = {"hyperparams", "vocab_size",}
+
     def __init__(self, config_path: utils.PathStr):
-        super().__init__(config_path)
+        super().__init__(config_path, self.expected_json_keys)
+        
+        # Initialize the model.
+        # Here we use `dict.get` to have default values to the hyperparameters.
         self._model = naive_bayes.MultinomialNB(
             alpha=self._config["hyperparams"].get("alpha", 1.0),
             fit_prior=self._config["hyperparams"].get("fit_prior", True),
@@ -54,43 +70,57 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
 
     def train(self, data_from_labeled_set: np.ndarray, 
               data_from_unlabeled_set: np.ndarray):
+        # Make sure that the type of the arguments is correct.
+        # This is a bit of overkill.
         utils.check_type(data_from_labeled_set, np.ndarray)
         utils.check_type(data_from_unlabeled_set, np.ndarray)
 
-        # Make the dataset smaller. In the dumbest way possible.
+        # Make the dataset smaller, in the dumbest way possible.
+        # TODO(julesgm, im-ant): This will not work when the dataset is huge.
         np.random.shuffle(data_from_unlabeled_set)
         data_from_unlabeled_set = data_from_unlabeled_set[:len(data_from_labeled_set)]
 
+        # Build the labels for our dataset.
         y = np.concatenate([np.ones(dtype=int, shape=[len(data_from_labeled_set)]),
                             np.zeros(dtype=int, shape=[len(data_from_unlabeled_set)])])
+        
+        # Concatenate the `positive` and the `negative` examples.
         x = np.concatenate([data_from_labeled_set, data_from_unlabeled_set])
 
-        # To One Hot
+        # Convert the id sequences to one hot representation.
         x_oh = utils.to_categorical(x, num_classes=self._config["vocab_size"])
         
-        # To BOW
+        # Add the one hot representations to get a per-sentence bag of word.
         x_bow = np.sum(x_oh, axis=1)
     
+        # Fit the model.
         self._model.fit(x_bow, y)
 
-    def save(self, path: utils.PathStr):
+    def save(self, path: utils.PathStr) -> None:
+        """Save the model once we have trained it.
+        """
         logging.info("Saving Model.")
+        # Open the file..
         with open(path) as fout:
+            # Dump the object.
             pickle.dump(self._model, fout)
         logging.info("Done saving Model.")
 
+
 def load_unlabeled_data(path: utils.PathStr) -> np.ndarray:
     """Prototypical version of the unlabeled dataset loader.
-    TODO(julesgm): Switch to not using npz
     """
     return np.load(path)
 
 def load_flattened_labeled_data(path: utils.PathStr) -> np.ndarray:
     """Prototypical version of the flattened labeled dataset loader.
-    TODO(julesgm): Switch to not using npz
     """
     return np.load(path)
 
+
+# Like in filter_inference, this is a map between the filter names
+# and their classes. This allows us to receive the name as an argument,
+# and construct the correct class.
 MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       naive_bayes_classifier=NaiveBayesClassifierFilterTrainer,
                       nbc=NaiveBayesClassifierFilterTrainer,
@@ -109,6 +139,8 @@ def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.Path
     Which model specifically is to be used is specified by the `model_type` 
     argument. The choices are the keys of the `MODEL_TYPE_MAP` dict. Multiple
     keys refer to the same class to make it easier to use.
+
+    Some of the arguments could probably be moved to the configuration file.
 
     Arguments:
         flattened_labeled_data_path: 
@@ -153,7 +185,7 @@ def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.Path
     flattened_labeled_data_path = pathlib.Path(flattened_labeled_data_path)
     unlabeled_dataset_path = pathlib.Path(unlabeled_dataset_path)
 
-    # Argument Enum Checks
+    # Check that the model type is one of the ones we can handle.
     model_type = model_type.lower()
     if model_type not in MODEL_TYPE_MAP.keys():
         raise ValueError(f"Invalid value for model_type. Got \"{model_type}\","
