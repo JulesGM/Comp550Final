@@ -10,11 +10,11 @@ import utils
 
 def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
          output_path: utils.PathStr):
-    """ Converts files in the textual BPE token format to dense bpe ids npz format.
+    """ Converts files in the textual BPE token format to the  `.npz` format.
 
-    This is only for a prototype. Converts the text bpe format to the 
-    dense numpy matrix format. I'm sure we will transition to a different format
-    soon.
+    This converts files with the text tokens to binary blobs with the ids of 
+    the BPE tokens in the BERT vocabulary, in the `.npz` format of numpy.
+
     The main advantage over text is that this is in theory faster, as you don't 
     have to parse the text to numbers. The problem is the crazy padding at the 
     end of each sentence, and the fact that you need to load the whole thing to 
