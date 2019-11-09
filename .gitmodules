@@ -4,4 +4,4 @@
 
 [submodule "src/bert"]
 	path = src/bert
-	url = https://github.com/google-research/bert.git
+	url = https://github.com/google-research/bert
