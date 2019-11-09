@@ -1,0 +1,9 @@
+# ==========================================================
+# Requirement file for venv (virtual environment)
+#
+# Usage: pip install -r requirements.txt
+# ==========================================================
+
+
+
+
