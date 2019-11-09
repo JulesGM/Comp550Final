@@ -34,13 +34,13 @@ git clone https://github.com/soskek/bookcorpus $BOOKCORPUS_PATH
 python -m pip install -r $BOOKCORPUS_PATH/requirements.txt
 
 # Get the list of book json (skipping because they already provide a list)
-#python -u $BOOKCORPUS_PATH/download_list.py > $BOOKCORPUS_PATH/url_list.jsonl
+# python -u $BOOKCORPUS_PATH/download_list.py > $BOOKCORPUS_PATH/url_list.jsonl
 
 # Get the book
 python $BOOKCORPUS_PATH/download_files.py --list $BOOKCORPUS_PATH/url_list.jsonl --out $BOOKCORPUS_PATH/out_txts --trash-bad-count
 
 
-# Copy the books to an appropriate directory (incomplete)
+# Copy the books to an appropriate directory (uncomment below to copy to specified $BOOKS_DIR)
 # cp -r $BOOKCORPUS_PATH/out_txts $BOOKS_DIR
 
 
