@@ -20,14 +20,14 @@ module load python/3.7
 
 
 # Create temporary virtual environment and activate
-if [ ! -f "$VENV_PATH" ] ; then
+if [ ! -d "$VENV_PATH" ] ; then
   virtualenv $VENV_PATH
 fi
 source $VENV_PATH/bin/activate
 
 
 # Clone the bookcorpus repository
-if [ ! -f "$BOOKCORPUS_PATH" ] ; then
+if [ ! -d "$BOOKCORPUS_PATH" ] ; then
   mkdir $BOOKCORPUS_PATH
 fi
 git clone https://github.com/soskek/bookcorpus $BOOKCORPUS_PATH
