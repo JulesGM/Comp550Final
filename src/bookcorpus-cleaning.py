@@ -1,13 +1,15 @@
 # ============================================================================
 # For cleaning the bookcorpus output
 #
+# Reads in all .txt files from --input-dir, tokenize and pre-process the
+# plaintext, then write out processed text (one per book) to --output-dir
+#
 # ============================================================================
 
 import os
 import glob
 import argparse
 import blingfire
-
 
 # ===============================================
 # Parsing input arguments
@@ -63,10 +65,7 @@ def convert_to_sentences(lines: list) -> (list, int):
     return sent_L, n_sent
 
 
-
-
 def main():
-    #NOTE: not complete function
     # Get list of input file paths
     in_list = list(sorted(glob.glob(os.path.join(args.input_dir, '*.txt'))))
 
@@ -74,18 +73,6 @@ def main():
     for i, file_path in enumerate(in_list):
         # Read file, tokenize and generate sentences list
         sents, _ = convert_to_sentences(open(file_path).readlines())
-
-    """
-    # Filter
-
-        for j, s in enumerate(sents):
-            print(j, s, s.isspace())
-            if j>30:
-                break
-
-        break
-    """
-
 
     """
     TODO:
@@ -99,8 +86,16 @@ def main():
     
     """
 
-    # now i can write out teha bove as a single text file which has sentences as lines
-    #   for the book that i just read in
+    """ ignore this comment block: will be updated by next pull request
+        # Filter
+
+            for j, s in enumerate(sents):
+                print(j, s, s.isspace())
+                if j>30:
+                    break
+
+            break
+        """
 
 
 if __name__ == "__main__":
