@@ -108,12 +108,13 @@ def main():
         clean_sents = cleanup_sentences(sents)
 
         # Write file to output file TODO
+        file_basename = os.path.basename(file_path)
+        file_out_path = os.path.join(args.output_dir, file_basename)
+        open(file_out_path, "a").write("\n".join(clean_sents))
 
     """
     TODO:
-    - apache spark?
-    - output one file per book
-    
+    - apache spark?    
     """
 
 
