@@ -115,6 +115,7 @@ def main():
     """
     TODO:
     - apache spark?    
+    - add some form of logging for each book
     """
 
 
