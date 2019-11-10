@@ -9,6 +9,7 @@
 import os
 import glob
 import argparse
+import re
 import blingfire
 
 # ===============================================
@@ -65,6 +66,35 @@ def convert_to_sentences(lines: list) -> (list, int):
     return sent_L, n_sent
 
 
+def cleanup_sentences(sentences: list) -> list:
+    """
+    Function to clean up a list of sentences
+
+    :param sentences: list of sentences to be cleaned up
+    :return: list of cleaned up sentences
+    """
+
+    clean_sentences = []
+
+    for i, sent in enumerate(sentences):
+        # Removing head filter
+        if i < args.remove_heads:
+            continue
+
+        # Blank sentence filter
+        if args.remove_blank and sent.isspace():
+            continue
+
+        # Minimum sentence length filter
+        wordcount = len(re.findall(r'\w+', sent))
+        if wordcount < args.min_sent_len:
+            continue
+
+        clean_sentences.append(sent)
+
+    return clean_sentences
+
+
 def main():
     # Get list of input file paths
     in_list = list(sorted(glob.glob(os.path.join(args.input_dir, '*.txt'))))
@@ -74,28 +104,17 @@ def main():
         # Read file, tokenize and generate sentences list
         sents, _ = convert_to_sentences(open(file_path).readlines())
 
+        # Clean up sentences
+        clean_sents = cleanup_sentences(sents)
+
+        # Write file to output file TODO
+
     """
     TODO:
-    - min sentence length
-    - remove blank sentences?
-    - figure out what the above method (blingfire) does
-        - can blingfire do all of the above?
-    - remove header?
     - apache spark?
     - output one file per book
     
     """
-
-    """ ignore this comment block: will be updated by next pull request
-        # Filter
-
-            for j, s in enumerate(sents):
-                print(j, s, s.isspace())
-                if j>30:
-                    break
-
-            break
-        """
 
 
 if __name__ == "__main__":
