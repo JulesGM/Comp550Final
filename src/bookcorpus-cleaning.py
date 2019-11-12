@@ -12,63 +12,32 @@ import argparse
 import re
 import blingfire
 
-# ===============================================
-# Parsing input arguments
-parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
-
-parser.add_argument('--input-dir', type=str, required=True,
-                    help='path to input directory to read from (default: cwd)')
-parser.add_argument('--output-dir', type=str, required=True,
-                    help='path to output directory to write to (default: cwd)')
-parser.add_argument('--min-sent-len', type=int, default=4, metavar='N',
-                    help='minimum token length of valid sentence (default: 4)')
-parser.add_argument('--remove-blank', type=bool, default=True,
-                    help='remove lines with just whitespace (default: True)')
-parser.add_argument('--remove-heads', type=int, default=0,
-                    help='remove first N lines of file (default: N=0)')
-args = parser.parse_args()
-
 
 # ===============================================
 # Functions
 
-def convert_to_sentences(lines: list) -> (list, int):
+
+def chunk_to_sentences(chunk: str) -> list:
     """
-    Reads the raw lines from a .txt file, tokenize and return a list of
-     sentences. Each each sentence has its own line.
-    Code taken from:
-     https://github.com/soskek/bookcorpus/blob/master/make_sentlines.py
+    Takes a chunk of text from the file object, tokenize via BlingFire and
+    return the resulting sentences.
 
-    :param   lines: list of strings from a single .txt file (i.e. one book)
-    :return  sent_L: list of sentences
-             n_sent: number of sentences
+    TODO: why is the Bookcorpus equivalent function so convoluted? See:
+    https://github.com/soskek/bookcorpus/blob/master/make_sentlines.py
+
+    :param chunk: chunk of input file, separated by the python open iterator
+    :return: list of sentences from chunk
     """
-    stack = []
-    sent_L = []
-    n_sent = 0
-    for chunk in lines:
-        if not chunk.strip():
-            if stack:
-                sents = blingfire.text_to_sentences(
-                    " ".join(stack).strip().replace('\n', ' ')).split('\n')
-                sent_L.extend(sents)
-                n_sent += len(sents)
-                sent_L.append('\n')
-                stack = []
-            continue
-        stack.append(chunk.strip())
 
-    if stack:
-        sents = blingfire.text_to_sentences(
-            " ".join(stack).strip().replace('\n', ' ')).split('\n')
-        sent_L.extend(sents)
-        n_sent += len(sents)
-    return sent_L, n_sent
+    sentences = blingfire.text_to_sentences(
+        chunk.strip().replace("\n", " ")).split("\n")
+
+    return sentences
 
 
-def cleanup_sentences(sentences: list) -> list:
+def filter_sentences(sentences: list) -> list:
     """
-    Function to clean up a list of sentences
+    Function to filter a list of sentences
 
     :param sentences: list of sentences to be cleaned up
     :return: list of cleaned up sentences
@@ -81,7 +50,10 @@ def cleanup_sentences(sentences: list) -> list:
         if i < args.remove_heads:
             continue
 
-        # Blank sentence filter
+        # Empty sentence filter
+        if args.remove_blank and not sent:
+            continue
+        # Whitespace sentence filter
         if args.remove_blank and sent.isspace():
             continue
 
@@ -95,22 +67,35 @@ def cleanup_sentences(sentences: list) -> list:
     return clean_sentences
 
 
-def main():
+def main(args: argparse.Namespace):
     # Get list of input file paths
-    in_list = list(sorted(glob.glob(os.path.join(args.input_dir, '*.txt'))))
+    in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.txt")))
 
-    # Read each file and pre-process
-    for i, file_path in enumerate(in_list):
-        # Read file, tokenize and generate sentences list
-        sents, _ = convert_to_sentences(open(file_path).readlines())
+    # Iterate through each raw file
+    for i, in_file_path in enumerate(in_list):
+        # Generate output file path
+        file_basename = os.path.basename(in_file_path)
+        out_file_path = os.path.join(args.output_dir, file_basename)
 
-        # Clean up sentences
-        clean_sents = cleanup_sentences(sents)
+        # Open input and output files
+        in_file = open(in_file_path, mode="r")
+        out_file = open(out_file_path, mode="a")
 
-        # Write file to output file TODO
-        file_basename = os.path.basename(file_path)
-        file_out_path = os.path.join(args.output_dir, file_basename)
-        open(file_out_path, "a").write("\n".join(clean_sents))
+        # Iteratively read input file to process
+        for chunk in in_file:
+            # Get the blingfire-processed sentences from this chunk
+            bf_sentences = chunk_to_sentences(chunk)
+
+            # Additional filtering for the sentences
+            ft_sentences = filter_sentences(bf_sentences)
+
+            # Write filtered sentences to output file
+            for ft_sent in ft_sentences:
+                out_file.write("%s\n" % ft_sent)
+
+        # Close input and output files
+        in_file.close()
+        out_file.close()
 
     """
     TODO:
@@ -120,4 +105,20 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Parsing input arguments
+    parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
+
+    parser.add_argument('--input-dir', type=str, required=True,
+                        help='path to input directory to read from (default: cwd)')
+    parser.add_argument('--output-dir', type=str, required=True,
+                        help='path to output directory to write to (default: cwd)')
+    parser.add_argument('--min-sent-len', type=int, default=4, metavar='N',
+                        help='minimum token length of valid sentence (default: 4)')
+    parser.add_argument('--remove-blank', type=bool, default=True,
+                        help='remove lines with just whitespace (default: True)')
+    parser.add_argument('--remove-heads', type=int, default=0,
+                        help='remove first N lines of file (default: N=0)')
+
+    args = parser.parse_args()
+
+    main(args)
