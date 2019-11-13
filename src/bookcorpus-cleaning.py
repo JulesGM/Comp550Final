@@ -58,7 +58,7 @@ def filter_sentences(sentences: list) -> list:
             continue
 
         # Minimum sentence length filter
-        wordcount = len(re.findall(r'\w+', sent))
+        wordcount = len(re.findall(r"\w+", sent))
         if wordcount < args.min_sent_len:
             continue
 
@@ -77,25 +77,20 @@ def main(args: argparse.Namespace):
         file_basename = os.path.basename(in_file_path)
         out_file_path = os.path.join(args.output_dir, file_basename)
 
-        # Open input and output files
-        in_file = open(in_file_path, mode="r")
-        out_file = open(out_file_path, mode="a")
+        with open(in_file_path) as in_file, \
+                open(out_file_path, "w") as out_file:
 
-        # Iteratively read input file to process
-        for chunk in in_file:
-            # Get the blingfire-processed sentences from this chunk
-            bf_sentences = chunk_to_sentences(chunk)
+            # Iteratively read input file to process
+            for chunk in in_file:
+                # Get the blingfire-processed sentences from this chunk
+                bf_sentences = chunk_to_sentences(chunk)
 
-            # Additional filtering for the sentences
-            ft_sentences = filter_sentences(bf_sentences)
+                # Additional filtering for the sentences
+                ft_sentences = filter_sentences(bf_sentences)
 
-            # Write filtered sentences to output file
-            for ft_sent in ft_sentences:
-                out_file.write("%s\n" % ft_sent)
-
-        # Close input and output files
-        in_file.close()
-        out_file.close()
+                # Write filtered sentences to output file
+                for ft_sent in ft_sentences:
+                    out_file.write("%s\n" % ft_sent)
 
     """
     TODO:
