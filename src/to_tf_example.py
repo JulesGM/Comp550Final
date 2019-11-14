@@ -1,13 +1,8 @@
-import argparse
 import collections
-import logging
 import pathlib
 import subprocess
 from typing import Any, Iterable, List, Tuple, Type, Union
-from urllib import request
-import zipfile
 
-import numpy as np
 import random
 import tensorflow as tf
 
@@ -128,7 +123,6 @@ class WriteAsTfExample:
         self._writer_index = (self._writer_index + 1) % len(self._writers)
 
     def close(self):
-        print("closing")
         for writer in self._writers:
             writer.close()
 
