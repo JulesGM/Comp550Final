@@ -1,8 +1,11 @@
+import argparse
 import logging
 import pathlib
-from typing import Union, Iterable, Type
+from typing import Any, Iterable, Tuple, Type, Union
 from urllib import request
 import zipfile
+
+import numpy as np
 
 PathStr = Union[str, pathlib.Path]
 
@@ -66,6 +69,7 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
         logging.info(f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
+
 def check_type(obj, types: Union[Iterable[Type], Type]):
     """Check if an object is one of a few possible types.
     """ 
@@ -79,32 +83,92 @@ def check_type(obj, types: Union[Iterable[Type], Type]):
                            f"Got type {type(obj)} instead, which is not "
                            f"an instance of it.")
 
-def to_categorical(y, num_classes=None, dtype='float32'):
-  """
-  Copy pasted from tf.keras.utils to not have this huge
-  dependency.
-  
-  Converts a class vector (integers) to binary class matrix.
-  E.g. for use with categorical_crossentropy.
-  Arguments:
-      y: class vector to be converted into a matrix
-          (integers from 0 to num_classes).
-      num_classes: total number of classes.
-      dtype: The data type expected by the input. Default: `'float32'`.
-  Returns:
-      A binary matrix representation of the input. The classes axis is placed
-      last.
-  """
-  y = np.array(y, dtype='int')
-  input_shape = y.shape
-  if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
-    input_shape = tuple(input_shape[:-1])
-  y = y.ravel()
-  if not num_classes:
-    num_classes = np.max(y) + 1
-  n = y.shape[0]
-  categorical = np.zeros((n, num_classes), dtype=dtype)
-  categorical[np.arange(n), y] = 1
-  output_shape = input_shape + (num_classes,)
-  categorical = np.reshape(categorical, output_shape)
-  return categorical
+
+def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)
+             ) -> None:
+    """Logs the contents of a Namespace object in a pretty way.
+    """
+    before_entry = "\n\t- "
+    logging.log(log_level, 
+                f"Args:{before_entry}" + before_entry.join(
+                    f"{k}: {v}" for k, v in vars(args).items()))
+
+
+def count_len_iter(iterable: Iterable, force_count: bool=False) -> int:
+    """Counts the items of an iterable. May not return if the iterable has no end.
+    Some iterables (like text files) don't have an easy way to query their 
+    length, you need to actually count the elements.
+    `force_count` forces the function to actually count the elements instead of just
+    callen len.
+    """
+    # Check if it has a function to compute the len
+    if hasattr(iterable, "__len__") and not force_count:
+        return len(iterable)
+
+    # Iterate and add one per iteration
+    return sum(1 for _ in iterable)
+
+
+def count_lines(path: PathStr) -> int:
+    """Counts the number of lines in a file
+    """
+    with open(path) as fin:
+        return count_len_iter(fin)
+
+
+def to_categorical(y, num_classes: int=None, dtype='float32'):
+    """
+    Copy pasted from tf.keras.utils to not have this huge
+    dependency.
+    
+    Converts a class vector (integers) to binary class matrix.
+    E.g. for use with categorical_crossentropy.
+    Arguments:
+        y: class vector to be converted into a matrix
+            (integers from 0 to num_classes).
+        num_classes: total number of classes.
+        dtype: The data type expected by the input. Default: `'float32'`.
+    Returns:
+        A binary matrix representation of the input. The classes axis is placed
+        last.
+    """
+    y = np.array(y, dtype='int')
+    input_shape: Tuple = y.shape
+    if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
+        input_shape = tuple(input_shape[:-1])
+    y = y.ravel()
+    if not num_classes:
+        num_classes = np.max(y) + 1
+    n = y.shape[0]
+    categorical = np.zeros((n, num_classes), dtype=dtype)
+    categorical[np.arange(n), y] = 1
+    output_shape = input_shape + (num_classes,)
+    categorical = np.reshape(categorical, output_shape)
+    return categorical
+
+
+def check_equal(obj_a: Any, obj_b: Any, ErrorType: Type=ValueError):
+    if not obj_a == obj_b:
+        raise ErrorType("`check_equal` failed. Got:\n"
+                        f"\t{obj_a} and\n"
+                        f"\t{obj_b}.")
+
+
+if __name__ == "__main__":
+    """These are tests for the utils.
+    """
+    FORMAT = '%(message)s'
+    logging.basicConfig(format=FORMAT)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
+    # log_args:
+    args = argparse.Namespace(potato="apple", addresses=["mars", "saturn"], 
+                              phone_number=31415926535)
+    log_args(args)
+    
+    # count_len_iter:
+    # with __len__
+    assert count_len_iter([123, 321, 22]) == 3
+    # without __len__
+    assert count_len_iter((x for x in range(33))) == 33
