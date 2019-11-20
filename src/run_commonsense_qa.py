@@ -1,9 +1,4 @@
 """Run BERT on CommonsenseQA."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import json
 import os
@@ -11,9 +6,9 @@ import os
 import numpy as np
 import tensorflow as tf
 
-import modeling
-import optimization
-import tokenization
+from bert import modeling
+from bert import optimization
+from bert import tokenization
 
 
 flags = tf.flags
