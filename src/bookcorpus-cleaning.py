@@ -6,16 +6,14 @@
 #
 # ============================================================================
 
-import os
-import glob
 import argparse
+import glob
+import os
 import re
-
 from typing import List
 
-import numpy as np
-
 import blingfire
+import numpy as np
 
 
 # ===============================================
@@ -72,13 +70,13 @@ def filter_sentences(sentences: List[str]) -> List[str]:
     return clean_sentences
 
 
-def generate_textid_corpus(args: argparse.Namespace):
+def generate_textid_corpus(args: argparse.Namespace) -> None:
     """
     Read raw files (in specified directory), parse and filter, then output
     the Bert token-ids for all files to another directory
 
-    :param args:
-    :return:
+    :param args: ArgumentParser-parsed arguments
+    :return: None
     """
 
     # Get list of input file paths
@@ -86,7 +84,7 @@ def generate_textid_corpus(args: argparse.Namespace):
 
     # Load blingfire textid model
     idtok_model = blingfire.load_model(
-        os.path.join(os.path.dirname(blingfire.__file__), "bert_base_tok.bin"))
+        os.path.join(args.textid_dir, args.base_tok_file))
 
     # Iterate through each raw file
     for i, in_file_path in enumerate(in_list):
@@ -123,39 +121,6 @@ def generate_textid_corpus(args: argparse.Namespace):
     blingfire.free_model(idtok_model)
 
 
-def generate_plaintext_corpus(args: argparse.Namespace):
-    """
-    (Deprecated) Old function to generate a clean, plaintext bookcorpus.
-    Each (raw) book is outputted to a separate file.
-
-    :param args: input arguments
-    :return: None.
-    """
-    # Get list of input file paths
-    in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.txt")))
-
-    # Iterate through each raw file
-    for i, in_file_path in enumerate(in_list):
-        # Generate output file path
-        file_basename = os.path.basename(in_file_path)
-        out_file_path = os.path.join(args.output_dir, file_basename)
-
-        with open(in_file_path) as in_file, \
-                open(out_file_path, "w") as out_file:
-
-            # Iteratively read input file to process
-            for chunk in in_file:
-                # Get the blingfire-processed sentences from this chunk
-                bf_sentences = chunk_to_sentences(chunk)
-
-                # Additional filtering for the sentences
-                ft_sentences = filter_sentences(bf_sentences)
-
-                # Write filtered sentences to output file
-                for ft_sent in ft_sentences:
-                    out_file.write("%s\n" % ft_sent)
-
-
 if __name__ == "__main__":
     # Parsing input arguments
     parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
@@ -164,6 +129,13 @@ if __name__ == "__main__":
                         help='path to input directory to read from (default: cwd)')
     parser.add_argument('--output-dir', type=str, required=True,
                         help='path to output directory to write to (default: cwd)')
+    parser.add_argument('--textid-dir', type=str,
+                        default=os.path.dirname(blingfire.__file__),
+                        help="""path to directory of the text-id file (default: 
+                                os.path.dirname(blingfire.__file__))""")
+    parser.add_argument('--base-tok-file', type=str, default='bert_base_tok.bin',
+                        help="""file name of the base token id file (default: 
+                                bert_base_tok.bin)""")
     parser.add_argument('--min-sent-len', type=int, default=4, metavar='N',
                         help='minimum token length of valid sentence (default: 4)')
     parser.add_argument('--remove-blank', type=bool, default=True,
