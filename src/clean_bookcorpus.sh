@@ -12,8 +12,8 @@ BOOKS_DIR="$DATA_DIR/tmp/test_raw_books"          # downloaded books directory
 LOC_BOOKS="$SLURM_TMPDIR/books"                   # local books directory (to copy above to)
 VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
-LOC_CLEAN_BOOKS="$SLURM_TMPDIR/cleaned-books"     # local cleaned books dir
-CLEAN_BOOKS="$DATA_DIR/tmp/test_clean_books"      # cleaned books directory
+LOC_CLEAN_BOOKS="$SLURM_TMPDIR/cleaned-id-books"  # local cleaned books dir
+CLEAN_BOOKS="$DATA_DIR/tmp/test_clean_id_books"   # cleaned books directory
 
 
 # Load module
@@ -49,6 +49,8 @@ python src/bookcorpus-cleaning.py --input-dir "$LOC_BOOKS" \
                                   --min-sent-len 4 \
                                   --remove-blank True \
                                   --remove-heads 0 \
+                                  --id-seq-length 128 \
+                                  --oov-id 100 \
 
 
 # Copy local temporary cleaned books to data directory (uncomment to copy)

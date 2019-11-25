@@ -1,3 +1,4 @@
+#!/bin/sh
 # ===================================================================
 # Extracts the bookcorpus on the Mila cluster
 #
@@ -12,7 +13,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 VENV_PATH="$SLURM_TMPDIR/cur_venv"              # path of vitual environment
 BOOKCORPUS_PATH="$SLURM_TMPDIR/bookcorpus"      # bookcorpus code repository
 DATA_DIR="/network/tmp1/chenant/class/comp-550" # directory for data storage
-BOOKS_DIR="$DATA_DIR/bookcorpus-books"          # path to the output books
+BOOKS_DIR="$DATA_DIR/bookcorpus-raw-books"      # path to the output books
 
 
 # Load module
