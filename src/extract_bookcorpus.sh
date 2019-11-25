@@ -49,7 +49,7 @@ python $BOOKCORPUS_PATH/download_files.py \
 
 
 # Copy the books to an appropriate directory (uncomment below to copy)
-cp -r $BOOKCORPUS_PATH/out_txts $BOOKS_DIR
+# cp -r $BOOKCORPUS_PATH/out_txts $BOOKS_DIR
 
 
 
