@@ -1,3 +1,12 @@
+# The script prepares the socialIQA dataset for the training of 
+# the smart filter.
+# 1. Downloads the BERT vocab.
+# 2. Runs the "extract_socialiqa.py" script to download and extract
+#    the lines of the socialIQA dataset.
+# 3. Bert segmentizes (as text tokens) the text lines.
+# 4. Converts the bert text tokens to tf.Examples 
+#    by running 'bpe_text_to_ids_tf_examples.py'
+
 set -e # Close immidiately if a line returns something else than 0 (aka, if there is an error)
 set -u # Close immidiately if we try to access a variable that doesn't exist.
 

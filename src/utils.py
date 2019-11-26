@@ -155,7 +155,7 @@ def check_equal(obj_a: Any, obj_b: Any, ErrorType: Type=ValueError):
                         f"\t{obj_b}.")
 
 
-def grouper(n, iterable, fillvalue=None, mode="longuest"):
+def grouper(n, iterable, fillvalue=None, mode="longest"):
     """Chunks iterables in packs of n. 
     
     Examples: 
@@ -168,13 +168,13 @@ def grouper(n, iterable, fillvalue=None, mode="longuest"):
     
     """
     
-    acceptable_values = {"longuest", "shortest"}
+    acceptable_values = {"longest", "shortest"}
     if mode not in acceptable_values:
         raise ValueError(f"Argument 'mode' should be one of "
                          f"{acceptable_values}. Got '{mode}' instead.")
     
     args = [iter(iterable)] * n
-    if mode == "longuest":
+    if mode == "longest":
         return itertools.zip_longest(fillvalue=fillvalue, *args)
 
     elif mode == "shortest":
