@@ -21,14 +21,12 @@ import numpy as np
 import to_tf_example
 
 
-# ===============================================
-# Functions
-
-
 def sample_rand_sent(file_paths: List[str], n: int, l: int = 128) \
         -> np.ndarray:
     """
-    TODO: write ths
+    Sample a matrix of n random sentences of length l, given the file paths
+    of books (in the form of numpy matrices containing the token IDs for
+    each sentence in each book)
 
     :param file_paths: list of of paths to .npy files we sample from
     :param n: number of samples we want to generate
@@ -62,21 +60,25 @@ def sample_rand_sent(file_paths: List[str], n: int, l: int = 128) \
     return rand_sent_mat
 
 
-def generate_tf_example(args, writer):
+def generate_tf_example(args: argparse.Namespace,
+                        writer: to_tf_example.WriteAsTfExample) -> None:
     """
-    TODO: write this
+    Generate tf examples for BERT pre-training from a corpus of numpy matrices
+    denoting the token IDs for each token from some bookcorpus
 
-    :param args:
-    :return:
+    :param args: ArgumentParser-parsed arguments
+    :param writer: WriteAsTfExample object for writing tf examples to files
+    :return: None
     """
 
     # Get list of all available books
     in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.npy")))
 
-    # TODO: pretty-fy using progress bars?
+    # TODO maybe: pretty-fy using progress bars?
 
     # Iterate through each book file
     for i, in_file_path in enumerate(in_list):
+        print("[%d/%d] %s" % (i+1, len(in_list), in_file_path))
         # Load id matrix
         id_mat = np.load(in_file_path)
 
@@ -94,7 +96,7 @@ def generate_tf_example(args, writer):
             sent_indeces = np.arange(0, stop=min(num_to_sample,
                                                  len(id_mat) - 1))
 
-        # Specify the sentence indeces to have a random next sentence
+        # Pre-specify the sentence indeces to have a random next sentence
         num_rand_next_send = int(args.rand_sent_prob * len(sent_indeces))
         send_indeces_wrand = np.random.choice(sent_indeces,
                                               size=num_rand_next_send,
@@ -113,12 +115,8 @@ def generate_tf_example(args, writer):
             else:
                 next_sent = id_mat[cursent_idx + 1]
 
-            # Add to tf example TODO make sure this works
+            # Write tf example
             writer.add_sample(cur_sent, next_sent, next_is_rand)
-
-        print(np.shape(sent_indeces), np.shape(rand_sent_mat))  # TODO delete
-        if i > 3:
-            break  # TODO; deelete
 
 
 if __name__ == "__main__":
@@ -143,15 +141,19 @@ if __name__ == "__main__":
     parser.add_argument('--max-num-tokens', type=int, default=128,
                         help="""maximum allowable example sentence length,
                                 counted as number of tokens (default: 128)""")
+    parser.add_argument('--num-example-files', type=int, default=3,
+                        help='number of tf example files to generate (default: 3)')
 
-    # TODO: add verbosity so we know the book being filtered
+    # TODO maybe: add verbosity so we control knowing the book being filtered?
 
     args = parser.parse_args()
     print(args)
 
     # Initialize the list of output files to write the examples to
-    tmp_tf_file = os.path.join(args.output_dir, 'tf_example.tfrecord')  # TODO: add actual stuff here
-    output_files = [tmp_tf_file]  # TODO make better
+    output_files = []
+    for i_tf_ex in range(args.num_example_files):
+        cur_tf_file_name = '%d_TfExample.tfrecord' % i_tf_ex
+        output_files.append(os.path.join(args.output_dir, cur_tf_file_name))
 
     # Generate examples
     with to_tf_example.WriteAsTfExample(output_files, args.vocab_file,

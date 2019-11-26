@@ -14,7 +14,7 @@ VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"              # Path to the temp local BERT vocabulary file
-TF_OUT_DIR="$SLURM_TMPDIR/tf_examples"            # temp output directory storing the tf example files TODO: name change
+TF_OUT_DIR="$SLURM_TMPDIR/tf_examples_dir"        # temp output directory storing the tf example files
 
 
 #LOC_CLEAN_BOOKS="$SLURM_TMPDIR/cleaned-id-books"  # local cleaned books dir
@@ -50,16 +50,18 @@ if [ ! -f "$VOCAB_PATH" ] ; then
   wget "$VOCAB_URL" -O "$VOCAB_PATH"
 fi
 
+# Create (temporary) directory to store the tf examples
+if [ ! -d "$TF_OUT_DIR" ] ; then
+  mkdir "$TF_OUT_DIR"
+fi
+
 # Generate the tf examples
-python src/build_ex_from-id.py --input-dir "$LOC_BOOKS" \
+python -u src/build_ex_from-id.py --input-dir "$LOC_BOOKS" \
                                --output-dir "$TF_OUT_DIR" \
                                --vocab-file "$VOCAB_PATH" \
                                --shuf-sentences False \
                                --sent-per-book -1 \
 
 
-
-
-
 # Copy local temporary cleaned books to data directory (uncomment to copy)
-# cp -r $LOC_CLEAN_BOOKS $CLEAN_BOOKS
+# cp -r $TF_OUT_DIR $TODO_WRITE_THIS_PATH
