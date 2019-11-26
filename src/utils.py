@@ -1,4 +1,5 @@
 import argparse
+import itertools
 import logging
 import pathlib
 from typing import Any, Iterable, Tuple, Type, Union
@@ -152,6 +153,34 @@ def check_equal(obj_a: Any, obj_b: Any, ErrorType: Type=ValueError):
         raise ErrorType("`check_equal` failed. Got:\n"
                         f"\t{obj_a} and\n"
                         f"\t{obj_b}.")
+
+
+def grouper(n, iterable, fillvalue=None, mode="longest"):
+    """Chunks iterables in packs of n. 
+    
+    Examples: 
+        grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx
+        grouper(3, 'ABCDEFG', mode="shortest") --> ABC DEF 
+    
+    Slight modification of the `grouper` recipe of 
+    https://docs.python.org/3/library/itertools.html#itertools-recipes
+    to support mode="shortest".
+    
+    """
+    
+    acceptable_values = {"longest", "shortest"}
+    if mode not in acceptable_values:
+        raise ValueError(f"Argument 'mode' should be one of "
+                         f"{acceptable_values}. Got '{mode}' instead.")
+    
+    args = [iter(iterable)] * n
+    if mode == "longest":
+        return itertools.zip_longest(fillvalue=fillvalue, *args)
+
+    elif mode == "shortest":
+        return zip(*args)
+
+    assert False, "Should never get this far."
 
 
 if __name__ == "__main__":

@@ -72,13 +72,13 @@ class WriteAsTfExample:
         self._cls_token_id = text_to_id[CLS_TOKEN]
         self._sep_token_id = text_to_id[SEP_TOKEN]
         self._max_num_tokens = max_num_tokens
-        self._writers = [tf.io.TFRecordWriter(output_path) 
+        self._writers = [tf.io.TFRecordWriter(str(output_path)) 
                         for output_path in output_files]
 
         self._writer_index = 0
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, type, value, tb):
         self.close()

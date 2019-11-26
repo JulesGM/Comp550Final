@@ -25,9 +25,9 @@ def main(vocab_path: utils.PathStr, input_path: utils.PathStr,
             Where to save the segmented tokens.
     """
     # Type checks
-    # utils.check_type(vocab_path, {pathlib.Path, str})
-    # utils.check_type(input_path, {pathlib.Path, str})
-    # utils.check_type(output_path, {pathlib.Path, str})
+    utils.check_type(vocab_path, {pathlib.Path, str})
+    utils.check_type(input_path, {pathlib.Path, str})
+    utils.check_type(output_path, {pathlib.Path, str})
 
     # Type coercion
     vocab_path = pathlib.Path(vocab_path)
