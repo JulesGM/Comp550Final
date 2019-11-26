@@ -7,16 +7,18 @@
 #
 # ============================================================================
 
-import os
-import glob
 import argparse
-import re
-
-from typing import List
 from collections import Counter
-import numpy as np
+import glob
+import os
+import pathlib
+import re
+from typing import List
 
 import blingfire
+import numpy as np
+
+import to_tf_example
 
 
 # ===============================================
@@ -60,7 +62,7 @@ def sample_rand_sent(file_paths: List[str], n: int, l: int = 128) \
     return rand_sent_mat
 
 
-def generate_tf_example(args):
+def generate_tf_example(args, writer):
     """
     TODO: write this
 
@@ -72,8 +74,6 @@ def generate_tf_example(args):
     in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.npy")))
 
     # TODO: pretty-fy using progress bars?
-
-    # TODO: initialize the tf example loader
 
     # Iterate through each book file
     for i, in_file_path in enumerate(in_list):
@@ -87,12 +87,12 @@ def generate_tf_example(args):
         if args.shuf_sentences:
             sent_indeces = np.random.choice(len(id_mat) - 1,
                                             size=min(num_to_sample,
-                                                     len(id_mat)-1),
+                                                     len(id_mat) - 1),
                                             replace=False)
         # If we just want to take row indeces in order
         else:
             sent_indeces = np.arange(0, stop=min(num_to_sample,
-                                                 len(id_mat)-1))
+                                                 len(id_mat) - 1))
 
         # Specify the sentence indeces to have a random next sentence
         num_rand_next_send = int(args.rand_sent_prob * len(sent_indeces))
@@ -113,10 +113,12 @@ def generate_tf_example(args):
             else:
                 next_sent = id_mat[cursent_idx + 1]
 
-            # Add to tf example
-            # add(cur_sent, next_sent, next_is_rand)
+            # Add to tf example TODO make sure this works
+            writer.add_sample(cur_sent, next_sent, next_is_rand)
 
         print(np.shape(sent_indeces), np.shape(rand_sent_mat))  # TODO delete
+        if i > 3:
+            break  # TODO; deelete
 
 
 if __name__ == "__main__":
@@ -124,9 +126,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
 
     parser.add_argument('--input-dir', type=str, required=True,
-                        help='path to input directory to read from (default: cwd)')
+                        help='path to input directory to read from')
     parser.add_argument('--output-dir', type=str, required=True,
-                        help='path to output directory to write to (default: cwd)')
+                        help='path to output directory to write to')
+    parser.add_argument('--vocab-file', type=str, required=True,
+                        help='path to the BERT vocabulary file')
     parser.add_argument('--shuf-sentences', type=bool, default=False,
                         help="""whether to randomize the sentences from each 
                                 book (default: False)""")
@@ -136,16 +140,26 @@ if __name__ == "__main__":
     parser.add_argument('--rand-sent-prob', type=float, default=0.5,
                         help="""probability of sampling a random next sentence 
                                 (default: 0.5)""")
+    parser.add_argument('--max-num-tokens', type=int, default=128,
+                        help="""maximum allowable example sentence length,
+                                counted as number of tokens (default: 128)""")
 
     # TODO: add verbosity so we know the book being filtered
 
     args = parser.parse_args()
     print(args)
 
-    """
-    TODO:
-    - apache spark?    
-    - add some form of logging for each book?
-    """
+    # Initialize the list of output files to write the examples to
+    tmp_tf_file = os.path.join(args.output_dir, 'tf_example.tfrecord')  # TODO: add actual stuff here
+    output_files = [tmp_tf_file]  # TODO make better
 
-    generate_tf_example(args)
+    # Generate examples
+    with to_tf_example.WriteAsTfExample(output_files, args.vocab_file,
+                                        args.max_num_tokens) as writer:
+        generate_tf_example(args, writer)
+
+    """
+        TODO:
+        - apache spark?
+        - add some form of logging for each book?
+    """
