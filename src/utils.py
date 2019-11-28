@@ -2,7 +2,8 @@ import argparse
 import itertools
 import logging
 import pathlib
-from typing import Any, Iterable, Tuple, Type, Union
+from typing import Any, List, Optional, Iterable, \
+                   Tuple, Type, TypeVar, Union
 from urllib import request
 import zipfile
 
@@ -16,7 +17,8 @@ def get_filename_from_url(url: str) -> str:
     return url.rsplit("/", 1)[1]
 
 
-def maybe_download(url: str, output_path: PathStr, force: bool=False) -> None:
+def maybe_download(url: str, output_path: PathStr, 
+                   force: bool = False) -> None:
     """ Download if no file with the same name already exists at `output_path`.
     """
     output_path = pathlib.Path(output_path)
@@ -26,7 +28,7 @@ def maybe_download(url: str, output_path: PathStr, force: bool=False) -> None:
     
 
 def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
-                force: bool=False) -> None:
+                force: bool = False) -> None:
     """ Maybe the file at `path_to_zip` to `output_folder`
     
     Unzips the file if there isn't a file with the same name in `output_folder`.
@@ -44,9 +46,9 @@ def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
             zip_ref.extractall(output_folder)
     
     
-def maybe_download_and_unzip(url: str, output_folder: PathStr=None, 
-                             save_zip_where: PathStr=None, 
-                             force: bool=False) -> None:
+def maybe_download_and_unzip(url: str, output_folder: PathStr = None, 
+                             save_zip_where: PathStr = None, 
+                             force: bool = False) -> None:
     """ Download the file from url & unzip it if necessary.
     
     Downloads the file if there isn't alread a file in `output_folder` with 
@@ -71,7 +73,8 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
 
-def check_type(obj, types: Union[Iterable[Type], Type]):
+def check_type(obj: Any, types: Union[Iterable[Type], Type]
+               ) -> None:
     """Check if an object is one of a few possible types.
     """ 
     if not hasattr(types, "__iter__"):
@@ -85,8 +88,8 @@ def check_type(obj, types: Union[Iterable[Type], Type]):
                            f"an instance of it.")
 
 
-def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)
-             ) -> None:
+def log_args(args: argparse.Namespace, log_level: int = 
+             int(logging.DEBUG)) -> None:
     """Logs the contents of a Namespace object in a pretty way.
     """
     before_entry = "\n\t- "
@@ -95,7 +98,8 @@ def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)
                     f"{k}: {v}" for k, v in vars(args).items()))
 
 
-def count_len_iter(iterable: Iterable, force_count: bool=False) -> int:
+def count_len_iter(iterable: Iterable, 
+                   force_count: bool = False) -> int:
     """Counts the items of an iterable. May not return if the iterable has no end.
     Some iterables (like text files) don't have an easy way to query their 
     length, you need to actually count the elements.
@@ -117,7 +121,8 @@ def count_lines(path: PathStr) -> int:
         return count_len_iter(fin)
 
 
-def to_categorical(y, num_classes: int=None, dtype='float32'):
+def to_categorical(y : Iterable, num_classes: int = None, 
+                   dtype="float32") -> np.ndarray:
     """
     Copy pasted from tf.keras.utils to not have this huge
     dependency.
@@ -148,14 +153,18 @@ def to_categorical(y, num_classes: int=None, dtype='float32'):
     return categorical
 
 
-def check_equal(obj_a: Any, obj_b: Any, ErrorType: Type=ValueError):
+def check_equal(obj_a: Any, obj_b: Any, 
+                ErrorType: Type = ValueError) -> None:
     if not obj_a == obj_b:
         raise ErrorType("`check_equal` failed. Got:\n"
                         f"\t{obj_a} and\n"
                         f"\t{obj_b}.")
 
 
-def grouper(n, iterable, fillvalue=None, mode="longest"):
+T = TypeVar("T")
+def grouper(n: int, iterable: Iterable[T], 
+            fillvalue: Optional[T] = None, 
+            mode: str = "longest") -> Iterable[List[T]]:
     """Chunks iterables in packs of n. 
     
     Examples: 
