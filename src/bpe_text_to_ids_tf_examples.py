@@ -7,7 +7,7 @@ import numpy as np
 import tqdm
 
 import utils
-import to_tf_example
+import tf_example_utils
 try:
     import colored_traceback.auto
 except ImportError:
@@ -41,12 +41,10 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
     
     # Open the file with the lines of the dataset
     num_lines = utils.count_lines(input_data_path)
-    with tqdm.tqdm(open(input_data_path), total=num_lines
-        ) as fin, to_tf_example.WriteAsTfExample(output_files=[output_path], 
+    with open(input_data_path) as fin, tf_example_utils.WriteAsTfExample(output_files=[output_path], 
         max_num_tokens=128, vocab_path=bert_vocab_path) as writer:
-
         # Iterate by packs of two lines to 
-        filtered_file_gen = filter(lambda line: not line.isspace, fin)
+        filtered_file_gen = filter(lambda line: not line.isspace(), fin)
         for two_lines in utils.grouper(2, filtered_file_gen, mode="shortest"):
             ids_per_line = []
             for line in two_lines:
@@ -58,6 +56,7 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
                                    for token_text in tokens_of_the_line]
                 ids_per_line.append(ids_of_the_line)
 
+            
             # Add the list of the ids of the line to a list
             writer.add_sample(*ids_per_line, b_is_random=False)
 

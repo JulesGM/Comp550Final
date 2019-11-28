@@ -22,8 +22,13 @@ def maybe_download(url: str, output_path: PathStr,
     """ Download if no file with the same name already exists at `output_path`.
     """
     output_path = pathlib.Path(output_path)
-    if force or not output_path.exists():
-        logging.info("Downloading")
+    already_there = output_path.exists()
+    if already_there:
+        logging.debug(f"maybe_download: File {output_path} was already"
+                      f"there. Got force={force}")
+
+    if force or not already_there:
+        logging.info("maybe_download: Downloading")
         request.urlretrieve(url, output_path)
     
 
@@ -40,11 +45,16 @@ def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
 
     assert str(path_to_zip).endswith(".zip"), path_to_zip
 
-    if force or not (output_folder/path_to_zip.name.split(".")[0]).exists():
-        logging.info(f"Unzipping to {output_folder}")
+    final_path = output_folder/path_to_zip.name.split(".")[0]
+    already_there = final_path.exists()
+    if already_there:
+        logging.debug(f"maybe_unzip: File {path_to_zip} was already there. Got force={force}")
+
+    if force or not already_there:
+        logging.info(f"maybe_unzip: Unzipping to {output_folder}")
         with zipfile.ZipFile(path_to_zip, 'r') as zip_ref:
             zip_ref.extractall(output_folder)
-    
+
     
 def maybe_download_and_unzip(url: str, output_folder: PathStr = None, 
                              save_zip_where: PathStr = None, 
@@ -64,12 +74,20 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr = None,
         save_zip_where = output_folder
     filename = get_filename_from_url(url)
     
+    final_path = output_folder/filename.split(".")[0]
+    already_there = final_path.exists()
+    if already_there:
+        logging.debug(f"maybe_download_and_unzip: File {final_path} "
+                      f"was already there. Got force={force}")
+
     # Don't redownload the zip if the unzipped version already exists
-    if force or not (output_folder/filename.split(".")[0]).exists():
-        logging.info(f"Maybe downloading {url}")
+    if force or not already_there:
+        logging.info(f"maybe_download_and_unzip: "
+                     f"Maybe downloading {url}")
         maybe_download(url, save_zip_where/filename, force)
 
-        logging.info(f"Maybe unzipping {filename}")
+        logging.info(f"maybe_download_and_unzip: "
+                     f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
 
@@ -183,6 +201,7 @@ def grouper(n: int, iterable: Iterable[T],
                          f"{acceptable_values}. Got '{mode}' instead.")
     
     args = [iter(iterable)] * n
+    
     if mode == "longest":
         return itertools.zip_longest(fillvalue=fillvalue, *args)
 
