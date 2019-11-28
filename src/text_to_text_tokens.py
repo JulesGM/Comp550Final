@@ -14,7 +14,7 @@ def create_tokenizer(vocab_file, do_lower_case=False):
     
 
 def main(vocab_path: utils.PathStr, input_path: utils.PathStr, 
-         output_path: utils.PathStr):
+         output_path: utils.PathStr, force: bool = False):
     """
     Arguments:
         vocab_path:
@@ -34,20 +34,21 @@ def main(vocab_path: utils.PathStr, input_path: utils.PathStr,
     input_path = pathlib.Path(input_path)
     output_path = pathlib.Path(output_path)
 
-    # Load the BERT tokenizer
-    tokenizer = create_tokenizer(str(vocab_path), do_lower_case=False)
+    if not force and not output_path.exists():
+        # Load the BERT tokenizer
+        tokenizer = create_tokenizer(str(vocab_path), do_lower_case=False)
 
-    # Open the files
-    with open(input_path) as fin, open(output_path, "w") as fout:
-        # For each line in the original output text
-        num_line_input_path = sum(1 for _ in fin)
-        fin.seek(0)
-        for line in tqdm.tqdm(fin, total=num_line_input_path):
-            # Tokenize with the BERT-tokenizer
-            tokens = tokenizer.tokenize(line.strip())
-            
-            # Write to the output file
-            fout.write(" ".join(tokens) + "\n")
+        # Open the files
+        with open(input_path) as fin, open(output_path, "w") as fout:
+            # For each line in the original output text
+            num_line_input_path = sum(1 for _ in fin)
+            fin.seek(0)
+            for line in tqdm.tqdm(fin, total=num_line_input_path):
+                # Tokenize with the BERT-tokenizer
+                tokens = tokenizer.tokenize(line.strip())
+                
+                # Write to the output file
+                fout.write(" ".join(tokens) + "\n")
 
 
 if __name__ == "__main__":

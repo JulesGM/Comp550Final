@@ -15,9 +15,13 @@ from typing import Set
 import fire
 import numpy as np
 from sklearn import naive_bayes
+import tensorflow as tf
+import tqdm
 
+import tf_example_utils
 import utils
 
+SAMPLE_LEN = 128
 
 class FilterAbstractTrainer:
     """Base class of all Filter Trainer instances.
@@ -55,7 +59,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """Smart filter using a Naive Bayes Classifier.
     Saves itself with the pickle module. Prototypical implementation.
     """
-    expected_json_keys = {"hyperparams", "vocab_size",}
+    expected_json_keys = {"hyperparams", "vocab_size", "data_prep_batch_size"}
 
     def __init__(self, config_path: utils.PathStr):
         super().__init__(config_path, self.expected_json_keys)
@@ -68,32 +72,56 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
             class_prior=self._config["hyperparams"].get("class_prior", None))
 
 
-    def train(self, data_from_labeled_set: np.ndarray, 
-              data_from_unlabeled_set: np.ndarray):
-        # Make sure that the type of the arguments is correct.
-        # This is a bit of overkill.
-        utils.check_type(data_from_labeled_set, np.ndarray)
-        utils.check_type(data_from_unlabeled_set, np.ndarray)
+    def train(self, data_from_labeled_set: tf.data.Dataset, 
+              data_from_unlabeled_set: tf.data.Dataset):
+        utils.check_type(data_from_labeled_set, [tf.data.Dataset])
+        utils.check_type(data_from_unlabeled_set, [tf.data.Dataset])
 
+        # np.stack wants a list (or a tuple) and not a generator for some reason.
+        # It probably wants to be able to do random access to do some things
+        # in parallel
+        data_from_labeled_set = np.stack([sample["input_ids"].numpy() for sample in 
+                                         data_from_labeled_set])
+        data_from_unlabeled_set = np.stack([sample["input_ids"].numpy() for sample in 
+                                           data_from_unlabeled_set])
+        
         # Make the dataset smaller, in the dumbest way possible.
         # TODO(julesgm, im-ant): This will not work when the dataset is huge.
         np.random.shuffle(data_from_unlabeled_set)
         data_from_unlabeled_set = data_from_unlabeled_set[:len(data_from_labeled_set)]
-
+        
         # Build the labels for our dataset.
         y = np.concatenate([np.ones(dtype=int, shape=[len(data_from_labeled_set)]),
                             np.zeros(dtype=int, shape=[len(data_from_unlabeled_set)])])
-        
+
         # Concatenate the `positive` and the `negative` examples.
         x = np.concatenate([data_from_labeled_set, data_from_unlabeled_set])
 
-        # Convert the id sequences to one hot representation.
-        x_oh = utils.to_categorical(x, num_classes=self._config["vocab_size"])
-        
-        # Add the one hot representations to get a per-sentence bag of word.
-        x_bow = np.sum(x_oh, axis=1)
-    
-        # Fit the model.
+        pre_concat = []
+        batch_size = self._config["data_prep_batch_size"]
+        upper_bound = x.shape[0] // batch_size + 1
+        logging.info("Creating Bag of Word Features")
+        for i in tqdm.tqdm(range(upper_bound)):
+            batch = x[i * batch_size:(i + 1) * batch_size]
+
+            # Convert the id sequences to one hot representation.
+            x_oh = utils.to_categorical(batch, num_classes=self._config["vocab_size"])
+            
+            # Using tensorflow to do the sum is faster even on CPU ...
+            x_oh_tf = tf.constant(x_oh)
+            
+            # Add the one hot representations to get a per-sentence bag of word.
+            # pre_concat.append(np.sum(x_oh, axis=1))
+            pre_concat.append(tf.math.reduce_sum(x_oh_tf, axis=1).numpy())
+            
+            del batch
+            del x_oh 
+            del x_oh_tf
+        del x
+        x_bow = np.concatenate(pre_concat)
+        del pre_concat
+
+        logging.info("Fitting Model")
         self._model.fit(x_bow, y)
 
     def save(self, path: utils.PathStr) -> None:
@@ -101,21 +129,21 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         """
         logging.info("Saving Model.")
         # Open the file..
-        with open(path) as fout:
+        with open(str(path), "wb") as fout:
             # Dump the object.
             pickle.dump(self._model, fout)
         logging.info("Done saving Model.")
 
 
-def load_unlabeled_data(path: utils.PathStr) -> np.ndarray:
-    """Prototypical version of the unlabeled dataset loader.
-    """
-    return np.load(path)
-
-def load_flattened_labeled_data(path: utils.PathStr) -> np.ndarray:
+def load_data(path: utils.PathStr) -> np.ndarray:
     """Prototypical version of the flattened labeled dataset loader.
     """
-    return np.load(path)
+    # This is kind of dumb, but the whole dataset is very small,
+    # so there is no problem
+    reader = tf_example_utils.readFromTfExample([path], sample_len=SAMPLE_LEN,
+                                              shuffle_buffer_size=1, num_readers=4, num_map_threads=4, num_epochs=1)
+
+    return reader
 
 
 # Like in filter_inference, this is a map between the filter names
@@ -127,7 +155,7 @@ MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       # ... Some more. Multiple names per entry are encouraged.
                       )
 
-def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.PathStr, 
+def main(flattened_labeled_data_path: utils.PathStr, 
          model_config_path: utils.PathStr, model_type: str,
          trainer_save_path: utils.PathStr, unlabeled_dataset_path: utils.PathStr, 
          verbosity: int = int(logging.DEBUG)):
@@ -146,8 +174,6 @@ def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.Path
         flattened_labeled_data_path: 
             Path of the data to be used to train the filter, after having 
             been transformed to the format that is compatible with the filter.
-        input_data_path: 
-            Path to the input data.
         model_config_path:
             Path to the json config file.
         model_type:
@@ -170,16 +196,14 @@ def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.Path
         Void
     """
     # Argument Type Checks
-    utils.check_type(verbosity, int)    
-    utils.check_type(model_type, str)
-    utils.check_type(input_data_path, [str, pathlib.Path])
+    utils.check_type(verbosity, [int])    
+    utils.check_type(model_type, [str])
     utils.check_type(model_config_path, [str, pathlib.Path])
     utils.check_type(trainer_save_path, [str, pathlib.Path])
     utils.check_type(flattened_labeled_data_path, [str, pathlib.Path])
     utils.check_type(unlabeled_dataset_path, [str, pathlib.Path])
 
     # Argument Type Coercions
-    input_path = pathlib.Path(input_data_path)
     model_config_path = pathlib.Path(model_config_path)
     trainer_save_path = pathlib.Path(trainer_save_path)
     flattened_labeled_data_path = pathlib.Path(flattened_labeled_data_path)
@@ -197,14 +221,14 @@ def main(flattened_labeled_data_path: utils.PathStr, input_data_path: utils.Path
     logger.setLevel(verbosity)
 
     # Load Data
-    data_from_labeled_set = load_flattened_labeled_data(flattened_labeled_data_path)
-    data_from_unlabeled_set = load_unlabeled_data(unlabeled_dataset_path)
+    data_from_labeled_set = load_data(flattened_labeled_data_path)
+    data_from_unlabeled_set = load_data(unlabeled_dataset_path)
 
     # Trainer Action
     trainer = MODEL_TYPE_MAP[model_type](model_config_path)
     trainer.train(data_from_labeled_set, data_from_unlabeled_set)
     trainer.save(trainer_save_path)
-
+    logging.info("Done.")
 
 if __name__ == "__main__":
     fire.Fire(main)

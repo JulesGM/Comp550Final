@@ -11,13 +11,14 @@ set -e # Close immidiately if a line returns something else than 0 (aka, if ther
 set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 
-VOCAB_PATH="vocab.txt"
-INPUT_PATH="socialiqa-train-output.txt"
-OUTPUT_PATH_TXT_BPE="splitted-socialiqa.txt"
-OUTPUT_PATH_TF_EXAMPLES="splitted-socialiqa.example"
+VOCAB_PATH="/tmp/vocab.txt"
+TEXT_LINES="/tmp/socialiqa-train-output.txt"
+OUTPUT_PATH_TXT_BPE="/tmp/splitted-socialiqa.txt"
+OUTPUT_PATH_TF_EXAMPLES="/tmp/splitted-socialiqa.example"
 BERT_LIB_PATH="bert"
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
-
+MODEL_SAVE_PATH="/tmp/model.pkl"
+MODEL_CONFIG_PATH="../configs/nbc.json"
 
 # Minor compatibility adjustment for the BERT code.
 find "$BERT_LIB_PATH" -iname "*.py" -exec sed -i 's/tf.gfile./tf.io.gfile./g' "{}"  \;
@@ -34,14 +35,15 @@ fi
 echo -e "\n####################################################"
 echo "# extract_socialiqa.py:"
 echo "####################################################"
-python extract_socialiqa.py context
+python extract_socialiqa.py context --input_path=/tmp/socialiqa-train-dev/train.jsonl \
+        --output_path="$TEXT_LINES" 
 
 # run the segmentation script.
 echo -e "\n####################################################"
 echo "# text_to_text_tokens.py:"
 echo "####################################################"
 python text_to_text_tokens.py --vocab_path="$VOCAB_PATH" \
-    --input_path="$INPUT_PATH" --output_path="$OUTPUT_PATH_TXT_BPE"
+    --input_path="$TEXT_LINES" --output_path="$OUTPUT_PATH_TXT_BPE"
 
 # transfer the ids to tf.Examples
 echo -e "\n####################################################"
@@ -50,3 +52,13 @@ echo "####################################################"
 python bpe_text_to_ids_tf_examples.py --bert_vocab_path="$VOCAB_PATH" \
     --input_data_path="$OUTPUT_PATH_TXT_BPE" \
     --output_path="$OUTPUT_PATH_TF_EXAMPLES"
+
+#
+echo -e "\n####################################################"
+echo "# Filter Training"
+echo "####################################################"
+python filter_training.py --flattened_labeled_data_path="$OUTPUT_PATH_TF_EXAMPLES" \
+         --model_config_path="$MODEL_CONFIG_PATH" --model_type=NBC \
+         --trainer_save_path="$MODEL_SAVE_PATH" \
+         --unlabeled_dataset_path="$OUTPUT_PATH_TF_EXAMPLES" \
+         --verbosity=10
