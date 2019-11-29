@@ -211,6 +211,26 @@ def grouper(n: int, iterable: Iterable[T],
     assert False, "Should never get this far."
 
 
+def safe_bool_arg(arg: str) -> bool:
+    """Argparse's builtin handling of strings is horrendous. We make it safer.
+    Meant to be used as the `type` argument of `parser.add_argument` for a bool.
+
+    Arguments:
+        arg: The command line string to parse as a bool.
+    Returns:
+        The parsed argument
+    """
+    positive_values = {"true", "t", "yes", "y"}
+    negative_values = {"false", "f", "no", "n"}
+    if arg.lower() in positive_values:
+        return True
+    elif arg.lower() in negative_values:
+        return False
+    else:
+        raise ValueError(f"Got a wrong value for a boolean arg. Experted one of "
+                         f"{positive_values + negative_values}. Got {arg}.")
+
+
 if __name__ == "__main__":
     """These are tests for the utils.
     """

@@ -12,6 +12,11 @@ import pathlib
 import pickle
 from typing import Set
 
+# The following import is a conditional import.
+try:
+    import colored_traceback.auto
+except ImportError:
+    pass
 import fire
 import numpy as np
 from sklearn import naive_bayes
@@ -135,17 +140,30 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         logging.info("Done saving Model.")
 
 
-def load_data(path: utils.PathStr) -> np.ndarray:
+def load_data(path: utils.PathStr, num_map_threads: int = 4,
+              num_epochs: int = 1, shuffle_buffer_size: int = 1,
+              force: bool = False,
+              ) -> tf.data.Dataset:
     """Prototypical version of the flattened labeled dataset loader.
+    
+    Arguments:  
+        path: Paths of the tf.Example file.
+        sample_len: Length in number of tokens of the sample.
+        num_epochs: Number of times to loop over the data.
+        num_map_threads: Number fo threads to use for the deserialization
+                        of the tf.Example bytes to Python (Tensorflow) objects.
+        shuffle_buffer_size: the data is loaded this number of samples at the time,
+                            and these "shuffle batches" have their sample shuffled.
+    Returns:
+        A tf.data.Dataset object that returns the samples one at the time.
     """
     # This is kind of dumb, but the whole dataset is very small,
     # so there is no problem
-    reader = tf_example_utils.readFromTfExample([path], sample_len=SAMPLE_LEN,
-                                              shuffle_buffer_size=1, num_readers=4, num_map_threads=4, num_epochs=1)
+    return tf_example_utils.readFromTfExample([path], 
+        sample_len=SAMPLE_LEN, shuffle_buffer_size=shuffle_buffer_size,
+        num_map_threads=num_map_threads, num_epochs=num_epochs)
 
-    return reader
-
-
+    
 # Like in filter_inference, this is a map between the filter names
 # and their classes. This allows us to receive the name as an argument,
 # and construct the correct class.
@@ -158,7 +176,7 @@ MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
 def main(flattened_labeled_data_path: utils.PathStr, 
          model_config_path: utils.PathStr, model_type: str,
          trainer_save_path: utils.PathStr, unlabeled_dataset_path: utils.PathStr, 
-         verbosity: int = int(logging.DEBUG)):
+         verbosity: int = int(logging.DEBUG), force: bool = False):
     """
     Randomly loads an equal amount of unlabeled data to the size of the flattened
     labeled dataset, then trains the model to be used for smart filtering,
@@ -209,26 +227,27 @@ def main(flattened_labeled_data_path: utils.PathStr,
     flattened_labeled_data_path = pathlib.Path(flattened_labeled_data_path)
     unlabeled_dataset_path = pathlib.Path(unlabeled_dataset_path)
 
-    # Check that the model type is one of the ones we can handle.
-    model_type = model_type.lower()
-    if model_type not in MODEL_TYPE_MAP.keys():
-        raise ValueError(f"Invalid value for model_type. Got \"{model_type}\","
-                         f" expected one of {set(MODEL_TYPE_MAP)}.")
+    if force or not trainer_save_path.exists():
+        # Check that the model type is one of the ones we can handle.
+        model_type = model_type.lower()
+        if model_type not in MODEL_TYPE_MAP.keys():
+            raise ValueError(f"Invalid value for model_type. Got \"{model_type}\","
+                            f" expected one of {set(MODEL_TYPE_MAP)}.")
 
-    # Logger Setup
-    logging.basicConfig(format='%(message)s')
-    logger = logging.getLogger()
-    logger.setLevel(verbosity)
+        # Logger Setup
+        logging.basicConfig(format='%(message)s')
+        logger = logging.getLogger()
+        logger.setLevel(verbosity)
 
-    # Load Data
-    data_from_labeled_set = load_data(flattened_labeled_data_path)
-    data_from_unlabeled_set = load_data(unlabeled_dataset_path)
+        # Load Data
+        data_from_labeled_set = load_data(flattened_labeled_data_path)
+        data_from_unlabeled_set = load_data(unlabeled_dataset_path)
 
-    # Trainer Action
-    trainer = MODEL_TYPE_MAP[model_type](model_config_path)
-    trainer.train(data_from_labeled_set, data_from_unlabeled_set)
-    trainer.save(trainer_save_path)
-    logging.info("Done.")
+        # Trainer Action
+        trainer = MODEL_TYPE_MAP[model_type](model_config_path)
+        trainer.train(data_from_labeled_set, data_from_unlabeled_set)
+        trainer.save(trainer_save_path)
+        logging.info("Done.")
 
 if __name__ == "__main__":
     fire.Fire(main)

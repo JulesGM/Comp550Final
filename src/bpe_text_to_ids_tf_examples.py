@@ -13,8 +13,9 @@ try:
 except ImportError:
     pass
 
+
 def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
-         output_path: utils.PathStr, force: bool = False):
+         output_path: utils.PathStr, max_num_tokens: int, force: bool = False):
     """ Converts files in the textual BPE token format to the  tf.Example format.
 
     This converts files with the text tokens to binary blobs with the ids of 
@@ -34,11 +35,12 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
     utils.check_type(bert_vocab_path, [pathlib.Path, str])
     utils.check_type(input_data_path, [pathlib.Path, str])
     utils.check_type(output_path, [pathlib.Path, str])
+    utils.check_type(max_num_tokens, [int])
     bert_vocab_path = pathlib.Path(bert_vocab_path)
     input_data_path = pathlib.Path(input_data_path)
     output_path = pathlib.Path(output_path)
 
-    if not force and not  output_path.exists():
+    if force or not output_path.exists():
         # Open the vocab file
         with open(bert_vocab_path) as fin:
             # Vocabulary mapping of the BERT id to the token text
@@ -50,7 +52,7 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
         num_lines = utils.count_lines(input_data_path)
         with tqdm.tqdm(open(input_data_path), total=num_lines) as fin, \
             tf_example_utils.WriteAsTfExample(output_files=[output_path], 
-            max_num_tokens=128, vocab_path=bert_vocab_path) as writer:
+            max_num_tokens=MAX_NUM_TOKENS, vocab_path=bert_vocab_path) as writer:
             
             # Iterate by packs of two lines to 
             filtered_file_gen = filter(lambda line: not line.isspace(), fin)

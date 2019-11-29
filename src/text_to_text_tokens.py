@@ -34,7 +34,7 @@ def main(vocab_path: utils.PathStr, input_path: utils.PathStr,
     input_path = pathlib.Path(input_path)
     output_path = pathlib.Path(output_path)
 
-    if not force and not output_path.exists():
+    if force or not output_path.exists():
         # Load the BERT tokenizer
         tokenizer = create_tokenizer(str(vocab_path), do_lower_case=False)
 

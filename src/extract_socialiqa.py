@@ -63,7 +63,7 @@ if __name__ == "__main__":
                         default=pathlib.Path("/tmp/"), 
                         type=pathlib.Path, 
                         help="Where the zip is downloaded and unzipped.")
-    parser.add_argument("--force", "-f", action="store_true",
+    parser.add_argument("--force", "-f", type=utils.safe_bool_arg,
                         help="Force redownloading & reunzipping")
     args = parser.parse_args()
 
