@@ -1,0 +1,5 @@
+{
+    "model_pkl_path": "/tmp/model_nbc.pkl",
+    "vocab_size": 28996, 
+    "filter_threshold": 0.0
+}
