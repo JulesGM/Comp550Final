@@ -22,7 +22,7 @@ MODEL_CONFIG_PATH_INFERENCE="../configs/nbc_inference.json"
 MODEL_CONFIG_PATH_TRAINING="../configs/nbc_training.json"
 FILTERED_OUTPUT_PATH="/tmp/final_output.tfexamples"
 NUM_TOKENS=128
-FORCE="False"
+FORCE="True"
 
 # Minor compatibility adjustment for the BERT code.
 find "$BERT_LIB_PATH" -iname "*.py" -exec sed -i 's/tf.gfile./tf.io.gfile./g' "{}"  \;

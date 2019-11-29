@@ -109,17 +109,12 @@ class NBCFilter(FilterInferenceBase):
         Returns:
             A numpy array with the boolean filter mask.
         """
-
-        samples = samples["input_ids"].numpy()
-        # Convert the int indices to one hot representation.
-        # TODO(julesgm, im-ant): .... I wish we had a tf version of to_categorical.
-        # I'll look into this.
-        oh_samples = utils.to_categorical(samples, 
-            num_classes=self._config["vocab_size"])
         
         # Add the one hot representations over the length of the sentence
         # to get a bag of word vector of the sentence.
-        bow_samples = tf.math.reduce_sum(tf.constant(oh_samples), axis=1)
+        bow_samples = tf.math.reduce_sum(tf.one_hot(samples, 
+                                         self._config["vocab_size"]), axis=1)
+
 
         # Run the prediction.
         prediction_scores = self._model.predict(bow_samples.numpy())
@@ -180,11 +175,11 @@ def main(args: argparse.Namespace):
         for i, batch in enumerate(reader.batch(args.batch_size)):        
             # Get the mask from the filter object.
             print(f"Batch {i}")
-            mask = filter_.filter(batch)
+            mask = filter_.filter(batch["input_ids"])
             # Only select those where the mask was positive.
             
             new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
-                                for k, v in batch.items()}
+                                  for k, v in batch.items()}
             
             print(len(new_output_samples["input_ids"]))
             # Add them to our positive samples.

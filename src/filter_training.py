@@ -85,14 +85,13 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         # np.stack wants a list (or a tuple) and not a generator for some reason.
         # It probably wants to be able to do random access to do some things
         # in parallel
-        data_from_labeled_set = np.stack([sample["input_ids"].numpy() for sample in 
+        data_from_labeled_set = tf.stack([sample["input_ids"] for sample in 
                                          data_from_labeled_set])
-        data_from_unlabeled_set = np.stack([sample["input_ids"].numpy() for sample in 
+        data_from_unlabeled_set = tf.stack([sample["input_ids"] for sample in 
                                            data_from_unlabeled_set])
         
-        # Make the dataset smaller, in the dumbest way possible.
         # TODO(julesgm, im-ant): This will not work when the dataset is huge.
-        np.random.shuffle(data_from_unlabeled_set)
+        tf.random.shuffle(data_from_unlabeled_set)
         data_from_unlabeled_set = data_from_unlabeled_set[:len(data_from_labeled_set)]
         
         # Build the labels for our dataset.
@@ -100,7 +99,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
                             np.zeros(dtype=int, shape=[len(data_from_unlabeled_set)])])
 
         # Concatenate the `positive` and the `negative` examples.
-        x = np.concatenate([data_from_labeled_set, data_from_unlabeled_set])
+        x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
         pre_concat = []
         batch_size = self._config["data_prep_batch_size"]
@@ -110,18 +109,13 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
             batch = x[i * batch_size:(i + 1) * batch_size]
 
             # Convert the id sequences to one hot representation.
-            x_oh = utils.to_categorical(batch, num_classes=self._config["vocab_size"])
-            
-            # Using tensorflow to do the sum is faster even on CPU ...
-            x_oh_tf = tf.constant(x_oh)
+            x_oh = tf.one_hot(batch, self._config["vocab_size"])
             
             # Add the one hot representations to get a per-sentence bag of word.
-            # pre_concat.append(np.sum(x_oh, axis=1))
-            pre_concat.append(tf.math.reduce_sum(x_oh_tf, axis=1).numpy())
+            pre_concat.append(tf.math.reduce_sum(x_oh, axis=1).numpy())
             
             del batch
             del x_oh 
-            del x_oh_tf
         del x
         x_bow = np.concatenate(pre_concat)
         del pre_concat

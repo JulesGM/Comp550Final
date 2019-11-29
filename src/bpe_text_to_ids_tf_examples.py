@@ -52,7 +52,7 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
         num_lines = utils.count_lines(input_data_path)
         with tqdm.tqdm(open(input_data_path), total=num_lines) as fin, \
             tf_example_utils.WriteAsTfExample(output_files=[output_path], 
-            max_num_tokens=MAX_NUM_TOKENS, vocab_path=bert_vocab_path) as writer:
+            max_num_tokens=max_num_tokens, vocab_path=bert_vocab_path) as writer:
             
             # Iterate by packs of two lines to 
             filtered_file_gen = filter(lambda line: not line.isspace(), fin)
