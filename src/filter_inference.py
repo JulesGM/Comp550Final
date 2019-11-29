@@ -17,12 +17,16 @@ import pickle
 import numpy as np
 from sklearn import naive_bayes
 from sklearn import preprocessing
+import tensorflow as tf
 import tqdm
 
 # Our imports
+import tf_example_utils
 import utils
 
 SAMPLES_PER_OUTPUT_FILE = 1000
+SAMPLE_LEN = 128
+
 
 class FilterInferenceBase:
     """Base class of all of the different filters.
@@ -50,8 +54,7 @@ class FilterInferenceBase:
                              f"Got:      {sorted(expected_json_keys)}\n"
                              f"Expected: {sorted(self._config)}")
 
-    def filter(self, samples: np.ndarray
-               ) -> np.ndarray:
+    def filter(self, samples: tf.Tensor) -> np.ndarray:
         """ Returns a Numpy array with booleans, telling which samples to use.
         """
 
@@ -95,8 +98,7 @@ class NBCFilter(FilterInferenceBase):
             # We specify the class of the model with an inline annotation
             self._model: naive_bayes.MultinomialNB = pickle.load(fin)
 
-    def filter(self, samples: np.ndarray
-               ) -> np.ndarray:
+    def filter(self, samples: tf.Tensor, ) -> np.ndarray:
         """Filter the samples.
         Arguments:
             samples: 
@@ -107,19 +109,17 @@ class NBCFilter(FilterInferenceBase):
         Returns:
             A numpy array with the boolean filter mask.
         """
-
-        # Convert the int indices to one hot representation.
-        oh_samples = utils.to_categorical(samples, 
-            num_classes=self._config["num_classes"])
         
         # Add the one hot representations over the length of the sentence
         # to get a bag of word vector of the sentence.
-        bow_samples = sum(oh_samples, 1)
+        bow_samples = tf.math.reduce_sum(tf.one_hot(samples, 
+                                         self._config["vocab_size"]), axis=1)
+
 
         # Run the prediction.
-        prediction_scores = self._model.predict(bow_samples)
-        assert prediction_scores.shape == samples.shape[:2], (
-            prediction_scores.shape, samples.shape[:2])
+        prediction_scores = self._model.predict(bow_samples.numpy())
+        assert prediction_scores.shape == samples.shape[:1], (
+            prediction_scores.shape, samples.shape[:1])
         
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
@@ -161,48 +161,29 @@ def main(args: argparse.Namespace):
     # The stack thing is not ideal in parallel; it should be easy to come up with 
     # something else though.
     
-    # Tqdm is an extremely popular progress bar library.
-    # We iterate over all the files of Numpy's `.npz` format.
-    for file_ in tqdm.tqdm(pathlib.Path(args.input_data_path).glob(f"*.npz")):
-        logging.debug(f"Loading file \"{file_}\"")
-        # Load the numpy array with the indices.
-        samples = np.load(file_, dtype=int)
-        logging.debug(f"Loaded file \"{file_}\".")
-        
-        logging.debug(f"Filtering the samples from a file.")
-        # Get the mask from the filter object.
-        mask = filter_.filter(samples)
-        # Only select those where the mask was positive.
-        new_output_samples = samples[mask]
-        
-        # Add them to our positive samples.
-        positive_samples.append(new_output_samples)
-        active_output_sample_count += len(new_output_samples)
+    
+    reader = tf_example_utils.readFromTfExample(
+        [args.input_data_path], sample_len=SAMPLE_LEN, 
+        shuffle_buffer_size=args.shuffle_buffer_size,
+        num_map_threads=args.num_map_threads, 
+        num_epochs=1)
 
-        # We save the samples in a different file every SAMPLES_PER_OUTPUT_FILE
-        # sample.
-        if active_output_sample_count >= SAMPLES_PER_OUTPUT_FILE:
-            concatenated_samples = np.concatenate(positive_samples)
-            output_samples = concatenated_samples[:SAMPLES_PER_OUTPUT_FILE]
+    with tf_example_utils.WriteAsTfExample(output_files=[args.output_data_path],
+                                           vocab_path=args.vocab_path, 
+                                           max_num_tokens=SAMPLE_LEN) as writer:
 
-            # Awkward addition of the file number suffix. My searches suggest it is
-            # the real way to do it. 
-            logging.debug(f"Saving {output_file_index}.")
-            with_suffix = pathlib.Path(str(args.output_data_path_prefix) 
-                                       + f"_{output_file_index}")
-            np.save(with_suffix, output_samples)
-            logging.debug(f"Saved {output_file_index}.")
-            output_file_index += 1
-
-            # Adjust the count to fit the number of samples left in the `positive_samples`
-            # queue.
-            # TODO(julesgm): This part is error prone. Test more when live.
-            if active_output_sample_count > SAMPLES_PER_OUTPUT_FILE:
-                positive_samples = [concatenated_samples[SAMPLES_PER_OUTPUT_FILE:]]
-                active_output_sample_count = len(positive_samples[0])
-            else:
-                positive_samples = []
-                active_output_sample_count = 0
+        for i, batch in enumerate(reader.batch(args.batch_size)):        
+            # Get the mask from the filter object.
+            print(f"Batch {i}")
+            mask = filter_.filter(batch["input_ids"])
+            # Only select those where the mask was positive.
+            
+            new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
+                                  for k, v in batch.items()}
+            
+            print(len(new_output_samples["input_ids"]))
+            # Add them to our positive samples.
+            writer.from_feature_batch(new_output_samples)
 
     logging.info("Done.")
                 
@@ -211,13 +192,13 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     # Arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("filter_type", choices=list(FILTER_MAP.keys()), 
+    parser.add_argument("--filter_type", choices=list(FILTER_MAP.keys()), 
                         help="Which type of filter we are using.")
-    parser.add_argument("json_config_path", type=pathlib.Path,
+    parser.add_argument("--json_config_path", type=pathlib.Path,
                         help="Path of the model's configuration file.")
-    parser.add_argument("input_data_path", type=pathlib.Path,
+    parser.add_argument("--input_data_path", type=pathlib.Path,
                         help="Path to the data.")
-    parser.add_argument("output_data_path_prefix", type=pathlib.Path,
+    parser.add_argument("--output_data_path", type=pathlib.Path,
                         help="Prefix of where to save the data.")
     parser.add_argument("--verbosity", "-v", type=int,                     
                         default=10, help="""
@@ -231,6 +212,16 @@ if __name__ == "__main__":
                             CRITICAL = 50 
                             FATAL = CRITICAL         
                         """)
+                    
+    parser.add_argument("--shuffle_buffer_size", type=int, 
+                        help=("shuffle_buffer_size for tf.data.Dataset of "
+                              "the main data loader."))
+    parser.add_argument("--num_map_threads", type=int, 
+                        help="Number of threads to use to de-serialize the dataset.")
+    parser.add_argument("--batch_size", type=int, 
+                        help="Size of the batches.")
+    parser.add_argument("--vocab_path", type=pathlib.Path,
+                        help="Path of BERT's the vocabulary file.")
     args = parser.parse_args()
 
     # Logging

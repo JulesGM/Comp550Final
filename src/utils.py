@@ -2,7 +2,8 @@ import argparse
 import itertools
 import logging
 import pathlib
-from typing import Any, Iterable, Tuple, Type, Union
+from typing import Any, List, Optional, Iterable, \
+                   Tuple, Type, TypeVar, Union
 from urllib import request
 import zipfile
 
@@ -16,17 +17,23 @@ def get_filename_from_url(url: str) -> str:
     return url.rsplit("/", 1)[1]
 
 
-def maybe_download(url: str, output_path: PathStr, force: bool=False) -> None:
+def maybe_download(url: str, output_path: PathStr, 
+                   force: bool = False) -> None:
     """ Download if no file with the same name already exists at `output_path`.
     """
     output_path = pathlib.Path(output_path)
-    if force or not output_path.exists():
-        logging.info("Downloading")
+    already_there = output_path.exists()
+    if already_there:
+        logging.debug(f"maybe_download: File {output_path} was already"
+                      f"there. Got force={force}")
+
+    if force or not already_there:
+        logging.info("maybe_download: Downloading")
         request.urlretrieve(url, output_path)
     
 
 def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
-                force: bool=False) -> None:
+                force: bool = False) -> None:
     """ Maybe the file at `path_to_zip` to `output_folder`
     
     Unzips the file if there isn't a file with the same name in `output_folder`.
@@ -38,15 +45,20 @@ def maybe_unzip(path_to_zip: PathStr, output_folder: PathStr,
 
     assert str(path_to_zip).endswith(".zip"), path_to_zip
 
-    if force or not (output_folder/path_to_zip.name.split(".")[0]).exists():
-        logging.info(f"Unzipping to {output_folder}")
+    final_path = output_folder/path_to_zip.name.split(".")[0]
+    already_there = final_path.exists()
+    if already_there:
+        logging.debug(f"maybe_unzip: File {path_to_zip} was already there. Got force={force}")
+
+    if force or not already_there:
+        logging.info(f"maybe_unzip: Unzipping to {output_folder}")
         with zipfile.ZipFile(path_to_zip, 'r') as zip_ref:
             zip_ref.extractall(output_folder)
+
     
-    
-def maybe_download_and_unzip(url: str, output_folder: PathStr=None, 
-                             save_zip_where: PathStr=None, 
-                             force: bool=False) -> None:
+def maybe_download_and_unzip(url: str, output_folder: PathStr = None, 
+                             save_zip_where: PathStr = None, 
+                             force: bool = False) -> None:
     """ Download the file from url & unzip it if necessary.
     
     Downloads the file if there isn't alread a file in `output_folder` with 
@@ -62,16 +74,25 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr=None,
         save_zip_where = output_folder
     filename = get_filename_from_url(url)
     
+    final_path = output_folder/filename.split(".")[0]
+    already_there = final_path.exists()
+    if already_there:
+        logging.debug(f"maybe_download_and_unzip: File {final_path} "
+                      f"was already there. Got force={force}")
+
     # Don't redownload the zip if the unzipped version already exists
-    if force or not (output_folder/filename.split(".")[0]).exists():
-        logging.info(f"Maybe downloading {url}")
+    if force or not already_there:
+        logging.info(f"maybe_download_and_unzip: "
+                     f"Maybe downloading {url}")
         maybe_download(url, save_zip_where/filename, force)
 
-        logging.info(f"Maybe unzipping {filename}")
+        logging.info(f"maybe_download_and_unzip: "
+                     f"Maybe unzipping {filename}")
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
 
-def check_type(obj, types: Union[Iterable[Type], Type]):
+def check_type(obj: Any, types: Union[Iterable[Type], Type]
+               ) -> None:
     """Check if an object is one of a few possible types.
     """ 
     if not hasattr(types, "__iter__"):
@@ -85,8 +106,8 @@ def check_type(obj, types: Union[Iterable[Type], Type]):
                            f"an instance of it.")
 
 
-def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)
-             ) -> None:
+def log_args(args: argparse.Namespace, log_level: int = 
+             int(logging.DEBUG)) -> None:
     """Logs the contents of a Namespace object in a pretty way.
     """
     before_entry = "\n\t- "
@@ -95,7 +116,8 @@ def log_args(args: argparse.Namespace, log_level: int=int(logging.DEBUG)
                     f"{k}: {v}" for k, v in vars(args).items()))
 
 
-def count_len_iter(iterable: Iterable, force_count: bool=False) -> int:
+def count_len_iter(iterable: Iterable, 
+                   force_count: bool = False) -> int:
     """Counts the items of an iterable. May not return if the iterable has no end.
     Some iterables (like text files) don't have an easy way to query their 
     length, you need to actually count the elements.
@@ -117,7 +139,8 @@ def count_lines(path: PathStr) -> int:
         return count_len_iter(fin)
 
 
-def to_categorical(y, num_classes: int=None, dtype='float32'):
+def to_categorical(y : Iterable, num_classes: int = None, 
+                   dtype="float32") -> np.ndarray:
     """
     Copy pasted from tf.keras.utils to not have this huge
     dependency.
@@ -148,14 +171,18 @@ def to_categorical(y, num_classes: int=None, dtype='float32'):
     return categorical
 
 
-def check_equal(obj_a: Any, obj_b: Any, ErrorType: Type=ValueError):
+def check_equal(obj_a: Any, obj_b: Any, 
+                ErrorType: Type = ValueError) -> None:
     if not obj_a == obj_b:
         raise ErrorType("`check_equal` failed. Got:\n"
                         f"\t{obj_a} and\n"
                         f"\t{obj_b}.")
 
 
-def grouper(n, iterable, fillvalue=None, mode="longest"):
+T = TypeVar("T")
+def grouper(n: int, iterable: Iterable[T], 
+            fillvalue: Optional[T] = None, 
+            mode: str = "longest") -> Iterable[List[T]]:
     """Chunks iterables in packs of n. 
     
     Examples: 
@@ -174,6 +201,7 @@ def grouper(n, iterable, fillvalue=None, mode="longest"):
                          f"{acceptable_values}. Got '{mode}' instead.")
     
     args = [iter(iterable)] * n
+    
     if mode == "longest":
         return itertools.zip_longest(fillvalue=fillvalue, *args)
 
@@ -181,6 +209,26 @@ def grouper(n, iterable, fillvalue=None, mode="longest"):
         return zip(*args)
 
     assert False, "Should never get this far."
+
+
+def safe_bool_arg(arg: str) -> bool:
+    """Argparse's builtin handling of strings is horrendous. We make it safer.
+    Meant to be used as the `type` argument of `parser.add_argument` for a bool.
+
+    Arguments:
+        arg: The command line string to parse as a bool.
+    Returns:
+        The parsed argument
+    """
+    positive_values = {"true", "t", "yes", "y"}
+    negative_values = {"false", "f", "no", "n"}
+    if arg.lower() in positive_values:
+        return True
+    elif arg.lower() in negative_values:
+        return False
+    else:
+        raise ValueError(f"Got a wrong value for a boolean arg. Experted one of "
+                         f"{positive_values + negative_values}. Got {arg}.")
 
 
 if __name__ == "__main__":

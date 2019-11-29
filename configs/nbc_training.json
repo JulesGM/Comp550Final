@@ -1,0 +1,8 @@
+{
+    "hyperparams": {
+        "alpha": 1.0,
+        "fit_prior": true
+    },
+    "data_prep_batch_size": 100,
+    "vocab_size": 28996
+}
