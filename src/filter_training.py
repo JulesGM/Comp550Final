@@ -35,7 +35,8 @@ class FilterAbstractTrainer:
     init to a json configuration file.
     """
     def __init__(self, config_path: utils.PathStr, 
-                 expected_json_keys: Set[str] # We require a set to check equality.
+                 expected_json_keys: Set[str] 
+                 # We require a set to check equality.
                  ):
         # Open the file and load the configuration file.
         with open(config_path) as fin:
@@ -82,9 +83,6 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         utils.check_type(data_from_labeled_set, [tf.data.Dataset])
         utils.check_type(data_from_unlabeled_set, [tf.data.Dataset])
 
-        # np.stack wants a list (or a tuple) and not a generator for some reason.
-        # It probably wants to be able to do random access to do some things
-        # in parallel
         data_from_labeled_set = tf.stack([sample["input_ids"] for sample in 
                                          data_from_labeled_set])
         data_from_unlabeled_set = tf.stack([sample["input_ids"] for sample in 
@@ -92,11 +90,14 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         
         # TODO(julesgm, im-ant): This will not work when the dataset is huge.
         tf.random.shuffle(data_from_unlabeled_set)
-        data_from_unlabeled_set = data_from_unlabeled_set[:len(data_from_labeled_set)]
+        data_from_unlabeled_set = data_from_unlabeled_set[
+            :len(data_from_labeled_set)]
         
         # Build the labels for our dataset.
-        y = np.concatenate([np.ones(dtype=int, shape=[len(data_from_labeled_set)]),
-                            np.zeros(dtype=int, shape=[len(data_from_unlabeled_set)])])
+        y = np.concatenate([np.ones(dtype=int, 
+                                    shape=[len(data_from_labeled_set)]),
+                            np.zeros(dtype=int, 
+                                     shape=[len(data_from_unlabeled_set)])])
 
         # Concatenate the `positive` and the `negative` examples.
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
@@ -112,16 +113,16 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
             x_oh = tf.one_hot(batch, self._config["vocab_size"])
             
             # Add the one hot representations to get a per-sentence bag of word.
-            pre_concat.append(tf.math.reduce_sum(x_oh, axis=1).numpy())
+            pre_concat.append(tf.math.reduce_sum(x_oh, axis=1))
             
             del batch
             del x_oh 
         del x
-        x_bow = np.concatenate(pre_concat)
+        x_bow = tf.concat(pre_concat, axis=0)
         del pre_concat
 
         logging.info("Fitting Model")
-        self._model.fit(x_bow, y)
+        self._model.fit(x_bow.numpy(), y)
 
     def save(self, path: utils.PathStr) -> None:
         """Save the model once we have trained it.
@@ -146,8 +147,9 @@ def load_data(path: utils.PathStr, num_map_threads: int = 4,
         num_epochs: Number of times to loop over the data.
         num_map_threads: Number fo threads to use for the deserialization
                         of the tf.Example bytes to Python (Tensorflow) objects.
-        shuffle_buffer_size: the data is loaded this number of samples at the time,
-                            and these "shuffle batches" have their sample shuffled.
+        shuffle_buffer_size: the data is loaded this number of samples at the 
+                             time, and these "shuffle batches" have their sample 
+                             shuffled.
     Returns:
         A tf.data.Dataset object that returns the samples one at the time.
     """
@@ -172,9 +174,9 @@ def main(flattened_labeled_data_path: utils.PathStr,
          trainer_save_path: utils.PathStr, unlabeled_dataset_path: utils.PathStr, 
          verbosity: int = int(logging.DEBUG), force: bool = False):
     """
-    Randomly loads an equal amount of unlabeled data to the size of the flattened
-    labeled dataset, then trains the model to be used for smart filtering,
-    then saves it.
+    Randomly loads an equal amount of unlabeled data to the size of the 
+    flattened labeled dataset, then trains the model to be used for smart 
+    filtering, then saves it.
 
     Which model specifically is to be used is specified by the `model_type` 
     argument. The choices are the keys of the `MODEL_TYPE_MAP` dict. Multiple
@@ -225,8 +227,9 @@ def main(flattened_labeled_data_path: utils.PathStr,
         # Check that the model type is one of the ones we can handle.
         model_type = model_type.lower()
         if model_type not in MODEL_TYPE_MAP.keys():
-            raise ValueError(f"Invalid value for model_type. Got \"{model_type}\","
-                            f" expected one of {set(MODEL_TYPE_MAP)}.")
+            raise ValueError(f"Invalid value for model_type. Got "
+                             f"\"{model_type}\", expected one of "
+                             f"{set(MODEL_TYPE_MAP)}.")
 
         # Logger Setup
         logging.basicConfig(format='%(message)s')
