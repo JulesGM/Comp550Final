@@ -115,7 +115,6 @@ class NBCFilter(FilterInferenceBase):
         bow_samples = tf.math.reduce_sum(tf.one_hot(samples, 
                                          self._config["vocab_size"]), axis=1)
 
-
         # Run the prediction.
         prediction_scores = self._model.predict(bow_samples.numpy())
         assert prediction_scores.shape == samples.shape[:1], (
@@ -158,8 +157,8 @@ def main(args: argparse.Namespace):
     output_file_index = 0
     
     # TODO(julesgm, im-ant): Do this in parallel. 
-    # The stack thing is not ideal in parallel; it should be easy to come up with 
-    # something else though.
+    # The stack thing is not ideal in parallel; it should be easy to come up 
+    # with something else though.
     
     
     reader = tf_example_utils.readFromTfExample(
@@ -217,7 +216,8 @@ if __name__ == "__main__":
                         help=("shuffle_buffer_size for tf.data.Dataset of "
                               "the main data loader."))
     parser.add_argument("--num_map_threads", type=int, 
-                        help="Number of threads to use to de-serialize the dataset.")
+                        help="Number of threads to use to de-serialize the "
+                             "dataset.")
     parser.add_argument("--batch_size", type=int, 
                         help="Size of the batches.")
     parser.add_argument("--vocab_path", type=pathlib.Path,
