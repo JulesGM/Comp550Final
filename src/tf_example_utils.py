@@ -107,10 +107,14 @@ class WriteAsTfExample:
         batch["next_sentence_labels"]):
 
         features = collections.OrderedDict()
-        features["input_ids"] = input_ids
-        features["input_mask"] = input_mask
-        features["segment_ids"] = segment_ids
-        features["next_sentence_labels"] = next_sentence_labels
+        features["input_ids"] = _create_int_feature(input_ids, 
+          self._max_num_tokens)
+        features["input_mask"] = _create_int_feature(input_mask, 
+          self._max_num_tokens)
+        features["segment_ids"] = _create_int_feature(segment_ids, 
+          self._max_num_tokens)
+        features["next_sentence_labels"] = _create_int_feature([
+          next_sentence_labels], 1)
 
         self._write_one(features)
       
@@ -150,7 +154,7 @@ class WriteAsTfExample:
 
         while len(bpe_ids) < self._max_num_tokens:
           bpe_ids.append(0)
-          segment_ids.append(0)
+          segment_ids.append(2)
           input_mask.append(0)
 
         next_sentence_label = 1 if b_is_random else 0

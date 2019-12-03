@@ -8,6 +8,7 @@
 """
 # Standard imports
 import argparse
+import glob
 import json
 import logging
 import pathlib
@@ -98,7 +99,7 @@ class NBCFilter(FilterInferenceBase):
             # We specify the class of the model with an inline annotation
             self._model: naive_bayes.MultinomialNB = pickle.load(fin)
 
-    def filter(self, samples: tf.Tensor, ) -> np.ndarray:
+    def filter(self, samples: tf.Tensor) -> np.ndarray:
         """Filter the samples.
         Arguments:
             samples: 
@@ -109,19 +110,38 @@ class NBCFilter(FilterInferenceBase):
         Returns:
             A numpy array with the boolean filter mask.
         """
+        print("###########################################")
+        print("one hot")
+        print("###########################################")
         
+        maxlen = max(map(len, samples))
+        one_hot = tf.one_hot([tf.pad(sample, [[0, maxlen - len(sample)]]) 
+                              for sample in samples], 
+            self._config["vocab_size"])
+
+        print("###########################################")
+        print("bow")
+        print("###########################################")
+
         # Add the one hot representations over the length of the sentence
         # to get a bag of word vector of the sentence.
-        bow_samples = tf.math.reduce_sum(tf.one_hot(samples, 
-                                         self._config["vocab_size"]), axis=1)
+        bow_samples = tf.math.reduce_sum(one_hot, axis=1)
+
+        print("###########################################")
+        print("pred")
+        print("###########################################")
 
         # Run the prediction.
+        
         prediction_scores = self._model.predict(bow_samples.numpy())
-        assert prediction_scores.shape == samples.shape[:1], (
-            prediction_scores.shape, samples.shape[:1])
+        
+        print("###########################################")
+        print("comp")
+        print("###########################################")
         
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
+        
         return prediction_scores > self._config["filter_threshold"]
 
 # Map mapping the names of the different filter types to their class.
@@ -152,17 +172,12 @@ def main(args: argparse.Namespace):
     # The format of the output data may change.
     # We are expecting small arrays of ints in numpy's npz format currently.
     
-    positive_samples = []
-    active_output_sample_count = 0
-    output_file_index = 0
-    
     # TODO(julesgm, im-ant): Do this in parallel. 
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
     
-    
     reader = tf_example_utils.readFromTfExample(
-        [args.input_data_path], sample_len=SAMPLE_LEN, 
+        glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
         shuffle_buffer_size=args.shuffle_buffer_size,
         num_map_threads=args.num_map_threads, 
         num_epochs=1)
@@ -174,15 +189,26 @@ def main(args: argparse.Namespace):
         for i, batch in enumerate(reader.batch(args.batch_size)):        
             # Get the mask from the filter object.
             print(f"Batch {i}")
-            mask = filter_.filter(batch["input_ids"])
+
+            # Segment sample in two sentences
+            for sent in batch["input_ids"]:
+                print(sent)
+
+            sent_as = [batch["input_ids"][i][batch["segment_ids"][i] == 0][1: -1]
+                       for i in range(len(batch["input_ids"]))]
+            sent_bs = [batch["input_ids"][i][batch["segment_ids"][i] == 1]
+                       for i in range(len(batch["input_ids"]))]
+            sents = sent_as + sent_bs
+            mask = filter_.filter(sents)
             # Only select those where the mask was positive.
             
-            new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
-                                  for k, v in batch.items()}
+            # new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
+            #                       for k, v in batch.items()}
             
-            print(len(new_output_samples["input_ids"]))
-            # Add them to our positive samples.
-            writer.from_feature_batch(new_output_samples)
+            # print(len(new_output_samples["input_ids"]))
+            # print(len(new_output_samples["input_ids"]) / len(batch["input_ids"]))
+            # # Add them to our positive samples.
+            # writer.from_feature_batch(new_output_samples)
 
     logging.info("Done.")
                 

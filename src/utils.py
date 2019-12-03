@@ -91,13 +91,16 @@ def maybe_download_and_unzip(url: str, output_folder: PathStr = None,
         maybe_unzip(save_zip_where/filename, output_folder, force)
 
 
-def check_type(obj: Any, types: Union[Iterable[Type], Type]
+def check_file_exists(path: PathStr):
+    path = pathlib.Path(path)
+    if not path.exists():
+        raise RuntimeError(f"File failed existence check.\n\tPath:{path}")
+
+
+def check_type_one_of(obj: Any, types: Iterable[Type]
                ) -> None:
     """Check if an object is one of a few possible types.
     """ 
-    if not hasattr(types, "__iter__"):
-        types = [types]
-
     fit_one = any(isinstance(obj, type_) for type_ in types)
     if not fit_one:
         raise RuntimeError(f"Expected object to be one of the following types:"
@@ -229,6 +232,39 @@ def safe_bool_arg(arg: str) -> bool:
     else:
         raise ValueError(f"Got a wrong value for a boolean arg. Experted one of "
                          f"{positive_values + negative_values}. Got {arg}.")
+
+
+class TypedList:
+    """List that enforces that only one type of object can be added.
+    Mostly for debugging.
+    """
+    def __init__(self, target_type):
+        self._ls = []
+        self._target_type = target_type
+        self._i = 0
+
+    def append(self, obj):
+        if not type(obj) == self._target_type:
+            raise ValueError(f"Expected type {self._target_type}," +
+                             f" got {type(obj)}")
+        self._ls.append(obj)
+
+    def __iter__(self):
+        self._i = 0
+        return self
+
+    def __next__(self):
+        if self._i >= len(self):
+            raise StopIteration()
+        ret = self._ls[self._i]
+        self._i += 1
+        if not type(ret) == self._target_type:
+            raise ValueError(f"Expected type {self._target_type}," +
+                             f" got {type(ret)}")
+        return ret
+
+    def __len__(self):
+        return len(self._ls)
 
 
 if __name__ == "__main__":
