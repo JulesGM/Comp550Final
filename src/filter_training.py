@@ -6,8 +6,10 @@ because it is a dense format (which would make most of the space being used be
 for padding).
 We'll roll with it for the moment.
 """
+import glob
 import json
 import logging
+import itertools
 import pathlib
 import pickle
 from typing import Set
@@ -77,29 +79,87 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
             fit_prior=self._config["hyperparams"].get("fit_prior", True),
             class_prior=self._config["hyperparams"].get("class_prior", None))
 
+    @staticmethod
+    def _stack_per_sent(samples_a, samples_b):
+        """Extract both of the sentences of a sample, and stack all of them.
+        We need both sets of samples because we need to pad the the longuest
+        sentence of both sets.
+
+        There are two sentences in a sample. We want to train the filter
+        as if they were independant samples. So, we extract the sentences from 
+        the samples by using the segment_ids. We added a third segment id
+        for the padding in order to not get the padding when we filter
+        with the segment_ids.
+        """
+
+        lengths = []
+        packs = []
+
+        # for sample in itertools.islice(samples_a, 0, 100, 10):
+        #     print("# Input Ids: ######################################")
+        #     print(sample["input_ids"])
+        #     print("# Segment Ids: ####################################")
+        #     print(sample["segment_ids"])
+        #     print("")
+
+        for i, samples in enumerate([samples_a, samples_b]):
+            # The weird [1:-1] is to remove the <cls> token and the <sep>
+            # token from the first sentenceof a sample
+
+            sents_0 = [sample["input_ids"][sample["segment_ids"] == 0][1:-1] for 
+                       sample in tqdm.tqdm(samples)]
+            sents_1 = [sample["input_ids"][sample["segment_ids"] == 1] for 
+                       sample in tqdm.tqdm(samples)]
+            if i == 1:
+                for sample in itertools.islice(samples, 0, 100, 10):
+                    print(sample["segment_ids"])
+            
+            # itertools.chain just .. chains the iteration over two iterables.
+            # like, [x for x in itertools.chain(range(3), range(3))] would be
+            # [0, 1, 2, 0, 1, 2]
+            length = max(itertools.chain(map(len, sents_0), map(len, sents_1)))
+            packs.append((sents_0, sents_1))
+            lengths.append(length)
+        
+        maxlen = max(lengths)
+        output = []
+
+        for pack in tqdm.tqdm(packs):
+            sents = [tf.pad(sent, [[0, maxlen - len(sent)]]) 
+                     for sent in itertools.chain(*pack)]
+            output.append(sents)
+
+        return tf.stack(output[0]), tf.stack(output[1])
+
 
     def train(self, data_from_labeled_set: tf.data.Dataset, 
               data_from_unlabeled_set: tf.data.Dataset):
-        utils.check_type(data_from_labeled_set, [tf.data.Dataset])
-        utils.check_type(data_from_unlabeled_set, [tf.data.Dataset])
 
-        data_from_labeled_set = tf.stack([sample["input_ids"] for sample in 
-                                         data_from_labeled_set])
-        data_from_unlabeled_set = tf.stack([sample["input_ids"] for sample in 
-                                           data_from_unlabeled_set])
-        
-        # TODO(julesgm, im-ant): This will not work when the dataset is huge.
+        utils.check_type_one_of(data_from_labeled_set, [tf.data.Dataset])
+        utils.check_type_one_of(data_from_unlabeled_set, [tf.data.Dataset])
+
+        data_from_labeled_set, data_from_unlabeled_set = self._stack_per_sent(
+            data_from_labeled_set, data_from_unlabeled_set)
+
         tf.random.shuffle(data_from_unlabeled_set)
         data_from_unlabeled_set = data_from_unlabeled_set[
             :len(data_from_labeled_set)]
         
-        # Build the labels for our dataset.
-        y = np.concatenate([np.ones(dtype=int, 
-                                    shape=[len(data_from_labeled_set)]),
-                            np.zeros(dtype=int, 
-                                     shape=[len(data_from_unlabeled_set)])])
-
         # Concatenate the `positive` and the `negative` examples.
+        print("\nLABELED")
+        for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
+            print(x)
+        all_zeros = sum([tf.reduce_all(x == 0).numpy() 
+            for x in data_from_labeled_set])
+        print(f"number of all zeros: {all_zeros}/{len(data_from_labeled_set)}")
+        
+        print("\nUNLABELED")
+        for x in itertools.islice(data_from_unlabeled_set, 0, 100, 10):
+            print(x)
+        all_zeros = sum([tf.reduce_all(x == 0).numpy() 
+            for x in data_from_unlabeled_set])
+        print(f"number of all zeros: {all_zeros}/{len(data_from_unlabeled_set)}")
+
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
         pre_concat = []
@@ -121,6 +181,12 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         x_bow = tf.concat(pre_concat, axis=0)
         del pre_concat
 
+        # Build the labels for our dataset.
+        y = np.concatenate([np.ones(dtype=int, 
+                                    shape=[len(data_from_labeled_set)]),
+                            np.zeros(dtype=int, 
+                                     shape=[len(data_from_unlabeled_set)])])
+        
         logging.info("Fitting Model")
         self._model.fit(x_bow.numpy(), y)
 
@@ -155,7 +221,12 @@ def load_data(path: utils.PathStr, num_map_threads: int = 4,
     """
     # This is kind of dumb, but the whole dataset is very small,
     # so there is no problem
-    return tf_example_utils.readFromTfExample([path], 
+    paths = list(glob.glob(str(path)))
+    if not paths:
+        raise ValueError("Didn't find any files with the glob pattern. "
+                         f"Got the pattern {path}")
+
+    return tf_example_utils.readFromTfExample(paths, 
         sample_len=SAMPLE_LEN, shuffle_buffer_size=shuffle_buffer_size,
         num_map_threads=num_map_threads, num_epochs=num_epochs)
 
@@ -210,12 +281,12 @@ def main(flattened_labeled_data_path: utils.PathStr,
         Void
     """
     # Argument Type Checks
-    utils.check_type(verbosity, [int])    
-    utils.check_type(model_type, [str])
-    utils.check_type(model_config_path, [str, pathlib.Path])
-    utils.check_type(trainer_save_path, [str, pathlib.Path])
-    utils.check_type(flattened_labeled_data_path, [str, pathlib.Path])
-    utils.check_type(unlabeled_dataset_path, [str, pathlib.Path])
+    utils.check_type_one_of(verbosity, [int])    
+    utils.check_type_one_of(model_type, [str])
+    utils.check_type_one_of(model_config_path, [str, pathlib.Path])
+    utils.check_type_one_of(trainer_save_path, [str, pathlib.Path])
+    utils.check_type_one_of(flattened_labeled_data_path, [str, pathlib.Path])
+    utils.check_type_one_of(unlabeled_dataset_path, [str, pathlib.Path])
 
     # Argument Type Coercions
     model_config_path = pathlib.Path(model_config_path)
@@ -223,28 +294,28 @@ def main(flattened_labeled_data_path: utils.PathStr,
     flattened_labeled_data_path = pathlib.Path(flattened_labeled_data_path)
     unlabeled_dataset_path = pathlib.Path(unlabeled_dataset_path)
 
-    if force or not trainer_save_path.exists():
-        # Check that the model type is one of the ones we can handle.
-        model_type = model_type.lower()
-        if model_type not in MODEL_TYPE_MAP.keys():
-            raise ValueError(f"Invalid value for model_type. Got "
-                             f"\"{model_type}\", expected one of "
-                             f"{set(MODEL_TYPE_MAP)}.")
+    # if force or not trainer_save_path.exists():
+    # Check that the model type is one of the ones we can handle.
+    model_type = model_type.lower()
+    if model_type not in MODEL_TYPE_MAP.keys():
+        raise ValueError(f"Invalid value for model_type. Got "
+                            f"\"{model_type}\", expected one of "
+                            f"{set(MODEL_TYPE_MAP)}.")
 
-        # Logger Setup
-        logging.basicConfig(format='%(message)s')
-        logger = logging.getLogger()
-        logger.setLevel(verbosity)
+    # Logger Setup
+    logging.basicConfig(format='%(message)s')
+    logger = logging.getLogger()
+    logger.setLevel(verbosity)
 
-        # Load Data
-        data_from_labeled_set = load_data(flattened_labeled_data_path)
-        data_from_unlabeled_set = load_data(unlabeled_dataset_path)
+    # Load Data
+    data_from_labeled_set = load_data(flattened_labeled_data_path)
+    data_from_unlabeled_set = load_data(unlabeled_dataset_path)
 
-        # Trainer Action
-        trainer = MODEL_TYPE_MAP[model_type](model_config_path)
-        trainer.train(data_from_labeled_set, data_from_unlabeled_set)
-        trainer.save(trainer_save_path)
-        logging.info("Done.")
+    # Trainer Action
+    trainer = MODEL_TYPE_MAP[model_type](model_config_path)
+    trainer.train(data_from_labeled_set, data_from_unlabeled_set)
+    trainer.save(trainer_save_path)
+    logging.info("Done.")
 
 if __name__ == "__main__":
     fire.Fire(main)

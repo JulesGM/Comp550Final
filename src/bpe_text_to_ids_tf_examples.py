@@ -32,10 +32,10 @@ def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
             Whether to still do the transformation even if there is already
             a file with the expected name at `output_path`.
     """
-    utils.check_type(bert_vocab_path, [pathlib.Path, str])
-    utils.check_type(input_data_path, [pathlib.Path, str])
-    utils.check_type(output_path, [pathlib.Path, str])
-    utils.check_type(max_num_tokens, [int])
+    utils.check_type_one_of(bert_vocab_path, [pathlib.Path, str])
+    utils.check_type_one_of(input_data_path, [pathlib.Path, str])
+    utils.check_type_one_of(output_path, [pathlib.Path, str])
+    utils.check_type_one_of(max_num_tokens, [int])
     bert_vocab_path = pathlib.Path(bert_vocab_path)
     input_data_path = pathlib.Path(input_data_path)
     output_path = pathlib.Path(output_path)
