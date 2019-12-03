@@ -128,7 +128,9 @@ def generate_tf_example(args: argparse.Namespace,
                 next_sent = id_mat[cursent_idx + 1]
 
             # Write tf example
-            writer.add_sample(cur_sent, next_sent, next_is_rand)
+            # The != 0 is to remove the padding.
+            writer.add_sample(cur_sent[cur_sent != 0],
+                              next_sent[next_sent != 0], next_is_rand)
 
 
 def main(args: argparse.Namespace) -> None:

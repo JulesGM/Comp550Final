@@ -161,8 +161,8 @@ class WriteAsTfExample:
 
         features = collections.OrderedDict()
         features["input_ids"] = _create_int_feature(bpe_ids, self._max_num_tokens)
-        features["input_mask"] = _create_int_feature(segment_ids, self._max_num_tokens)
-        features["segment_ids"] = _create_int_feature(input_mask, self._max_num_tokens)
+        features["input_mask"] = _create_int_feature(input_mask, self._max_num_tokens)
+        features["segment_ids"] = _create_int_feature(segment_ids, self._max_num_tokens)
         features["next_sentence_labels"] = _create_int_feature([next_sentence_label], 1)
 
         self._write_one(features)
@@ -190,6 +190,8 @@ def readFromTfExample(paths: List[utils.PathStr], sample_len: int,
     A tf.data.Dataset object that returns the samples one at the time.
   """
   paths = [str(path) for path in paths]
+  if not paths:
+    raise ValueError("Didn't receive any paths to read from.")
 
   _feature_description = {
     "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64,),

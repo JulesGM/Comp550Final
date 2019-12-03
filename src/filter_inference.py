@@ -86,10 +86,13 @@ class NBCFilter(FilterInferenceBase):
     # Expected keys of the json config file that has the specific
     # configuration of this filter
     expected_json_keys = {"model_pkl_path", "vocab_size", "filter_threshold"}
+    expected_merge_modes = {"either", "both"}
 
     # TODO(julesgm, im-ant): Should probably be moved to a separate file.
     def __init__(self, model_config_path: utils.PathStr):
         """ Loads the model.
+        Arguments:
+            model_config_path: Where the config.json file is saved.
         """
         # Call the constructor of the base class.
         super().__init__(model_config_path, self.expected_json_keys)
@@ -110,35 +113,17 @@ class NBCFilter(FilterInferenceBase):
         Returns:
             A numpy array with the boolean filter mask.
         """
-        print("###########################################")
-        print("one hot")
-        print("###########################################")
-        
+    
         maxlen = max(map(len, samples))
         one_hot = tf.one_hot([tf.pad(sample, [[0, maxlen - len(sample)]]) 
                               for sample in samples], 
             self._config["vocab_size"])
-
-        print("###########################################")
-        print("bow")
-        print("###########################################")
-
+    
         # Add the one hot representations over the length of the sentence
         # to get a bag of word vector of the sentence.
         bow_samples = tf.math.reduce_sum(one_hot, axis=1)
-
-        print("###########################################")
-        print("pred")
-        print("###########################################")
-
-        # Run the prediction.
-        
         prediction_scores = self._model.predict(bow_samples.numpy())
-        
-        print("###########################################")
-        print("comp")
-        print("###########################################")
-        
+
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
         
@@ -190,25 +175,25 @@ def main(args: argparse.Namespace):
             # Get the mask from the filter object.
             print(f"Batch {i}")
 
-            # Segment sample in two sentences
-            for sent in batch["input_ids"]:
-                print(sent)
-
             sent_as = [batch["input_ids"][i][batch["segment_ids"][i] == 0][1: -1]
                        for i in range(len(batch["input_ids"]))]
             sent_bs = [batch["input_ids"][i][batch["segment_ids"][i] == 1]
                        for i in range(len(batch["input_ids"]))]
             sents = sent_as + sent_bs
             mask = filter_.filter(sents)
+            if args.merge_mode == "both":
+                mask = mask[::2] & mask[1::2]
+            elif args.merge_mode == "either":
+                mask = mask[::2] | mask[1::2]
             # Only select those where the mask was positive.
             
-            # new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
-            #                       for k, v in batch.items()}
+            new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
+                                  for k, v in batch.items()}
             
-            # print(len(new_output_samples["input_ids"]))
-            # print(len(new_output_samples["input_ids"]) / len(batch["input_ids"]))
-            # # Add them to our positive samples.
-            # writer.from_feature_batch(new_output_samples)
+            print(len(new_output_samples["input_ids"]))
+            print(len(new_output_samples["input_ids"]) / len(batch["input_ids"]))
+            # Add them to our positive samples.
+            writer.from_feature_batch(new_output_samples)
 
     logging.info("Done.")
                 
@@ -248,6 +233,10 @@ if __name__ == "__main__":
                         help="Size of the batches.")
     parser.add_argument("--vocab_path", type=pathlib.Path,
                         help="Path of BERT's the vocabulary file.")
+    parser.add_argument("--merge_mode", "-mm", help="How to deal with a "
+                        "sentence when only one of the two sentences "
+                        "are positive.", choices={"both", "either"},
+                        default="either")
     args = parser.parse_args()
 
     # Logging

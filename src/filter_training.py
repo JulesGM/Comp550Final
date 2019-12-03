@@ -95,12 +95,14 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         lengths = []
         packs = []
 
-        for sample in itertools.islice(samples_a, 0, 100, 10):
-            print(sample["input_ids"])
-            print(sample["segment_ids"])
-        exit()
+        # for sample in itertools.islice(samples_a, 0, 100, 10):
+        #     print("# Input Ids: ######################################")
+        #     print(sample["input_ids"])
+        #     print("# Segment Ids: ####################################")
+        #     print(sample["segment_ids"])
+        #     print("")
 
-        for samples in [samples_a, samples_b]:
+        for i, samples in enumerate([samples_a, samples_b]):
             # The weird [1:-1] is to remove the <cls> token and the <sep>
             # token from the first sentenceof a sample
 
@@ -108,6 +110,9 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
                        sample in tqdm.tqdm(samples)]
             sents_1 = [sample["input_ids"][sample["segment_ids"] == 1] for 
                        sample in tqdm.tqdm(samples)]
+            if i == 1:
+                for sample in itertools.islice(samples, 0, 100, 10):
+                    print(sample["segment_ids"])
             
             # itertools.chain just .. chains the iteration over two iterables.
             # like, [x for x in itertools.chain(range(3), range(3))] would be
@@ -136,20 +141,24 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         data_from_labeled_set, data_from_unlabeled_set = self._stack_per_sent(
             data_from_labeled_set, data_from_unlabeled_set)
 
-        exit()
-
         tf.random.shuffle(data_from_unlabeled_set)
         data_from_unlabeled_set = data_from_unlabeled_set[
             :len(data_from_labeled_set)]
         
         # Concatenate the `positive` and the `negative` examples.
-        print("LABELED")
+        print("\nLABELED")
         for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
             print(x)
+        all_zeros = sum([tf.reduce_all(x == 0).numpy() 
+            for x in data_from_labeled_set])
+        print(f"number of all zeros: {all_zeros}/{len(data_from_labeled_set)}")
         
-        print("UNLABELED")
+        print("\nUNLABELED")
         for x in itertools.islice(data_from_unlabeled_set, 0, 100, 10):
             print(x)
+        all_zeros = sum([tf.reduce_all(x == 0).numpy() 
+            for x in data_from_unlabeled_set])
+        print(f"number of all zeros: {all_zeros}/{len(data_from_unlabeled_set)}")
 
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
@@ -212,8 +221,12 @@ def load_data(path: utils.PathStr, num_map_threads: int = 4,
     """
     # This is kind of dumb, but the whole dataset is very small,
     # so there is no problem
-    return tf_example_utils.readFromTfExample(
-        list(glob.glob(str(path))), 
+    paths = list(glob.glob(str(path)))
+    if not paths:
+        raise ValueError("Didn't find any files with the glob pattern. "
+                         f"Got the pattern {path}")
+
+    return tf_example_utils.readFromTfExample(paths, 
         sample_len=SAMPLE_LEN, shuffle_buffer_size=shuffle_buffer_size,
         num_map_threads=num_map_threads, num_epochs=num_epochs)
 
