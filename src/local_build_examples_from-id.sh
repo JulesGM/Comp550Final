@@ -25,8 +25,8 @@ TF_OUT_DIR="$DATA_DIR/tf_examples_dir" # output directory storing the tf example
 TMP_DATA_DIR="/tmp"
 VENV_PATH="$TMP_DATA_DIR/cur_venv"       # temp virtual env directory
 BOOKCORPUS_REPO="$TMP_DATA_DIR/bookcorpus-repo"   # temp Bookcorpus git repository
-VOCAB_PATH="$TMP_DATA_DIR/vocab.txt"  # Path to the temp local BERT vocabulary file
 
+VOCAB_PATH="$TMP_DATA_DIR/vocab.txt"  # Path to the temp local BERT vocabulary file
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
 
 # Get the bookcorpus repository and its requirements
