@@ -23,9 +23,10 @@ import pathlib
 import re
 from typing import List
 
-import blingfire
 import numpy as np
+import tqdm
 
+import utils
 import tf_example_utils
 
 
@@ -85,8 +86,8 @@ def generate_tf_example(args: argparse.Namespace,
     # TODO maybe: pretty-fy using progress bars?
 
     # Iterate through each book file
-    for i, in_file_path in enumerate(in_list):
-        print("[%d/%d] %s" % (i+1, len(in_list), in_file_path))
+    for i, in_file_path in enumerate(tqdm.tqdm(in_list)):
+        logging.debug("[%d/%d] %s" % (i+1, len(in_list), in_file_path))
         # Load id matrix
         id_mat = np.load(in_file_path)
         logging.debug(in_file_path)
@@ -140,6 +141,7 @@ def main(args: argparse.Namespace) -> None:
     :param args: ArgumentParser-parsed arguments
     :return: None
     """
+    utils.log_args(args)
 
     # Initialize the list of output files to write the examples to
     output_files = []
@@ -149,13 +151,14 @@ def main(args: argparse.Namespace) -> None:
 
     # Generate examples
     with tf_example_utils.WriteAsTfExample(output_files, args.vocab_file,
-                                        args.max_num_tokens) as writer:
+                                           args.max_num_tokens) as writer:
         generate_tf_example(args, writer)
 
 
 if __name__ == "__main__":
     # Parsing input arguments
-    parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
+    parser = argparse.ArgumentParser(description=
+        "Clean up set of plaintext books")
 
     parser.add_argument("--input-dir", type=str, required=True,
                         help="path to input directory to read from")
@@ -175,14 +178,25 @@ if __name__ == "__main__":
     parser.add_argument("--max-num-tokens", type=int, default=128,
                         help="""maximum allowable example sentence length,
                                 counted as number of tokens (default: 128)""")
-    parser.add_argument("--num-example-files", type=int, default=3,
-                        help="number of tf example files to generate (default: 3)")
-
+    parser.add_argument("--num-example-files", type=int, default=1000,
+                        help="number of tf example files to generate "
+                             "(default: 1000)")
+    parser.add_argument("--verbosity", "-v", type=int, 
+                            default=int(logging.INFO), help="""
+                            Verbosity levels in python: 
+                                NOTSET = 0
+                                DEBUG = 10
+                                INFO = 20
+                                WARNING = 30 
+                                WARN = WARNING
+                                ERROR = 40 
+                                CRITICAL = 50 
+                                FATAL = CRITICAL         
+                            """)
     # TODO maybe: add verbosity so we control knowing the book being filtered?
 
     args = parser.parse_args()
-    print(args)
-    logging.getLogger().setLevel(logging.DEBUG)
-
+    logging.getLogger().setLevel(args.verbosity)
+    print("started")
     main(args)
 

@@ -7,7 +7,6 @@
 # ============================================================================
 
 import argparse
-import gc
 import glob
 import logging
 import os
@@ -133,14 +132,19 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
     bert_full_tokenizer = tokenization.FullTokenizer(
         vocab_file=str(args.vocab_path), do_lower_case=False)
 
+    if args.mode == "check":
+        with open(args.vocab_path) as fin:
+            ids_to_words = fin.read().strip().split("\n")
+            words_to_ids = {i: word for i, word in enumerate(ids_to_words)}
+
     # Iterate through each raw file
+    if args.mode != "blingfire":
+        print("WARNING: We aren't in a mode that doesn't "
+              f"exclusively use Blingfire. Will be slow.\nMode: {args.mode}")
     for i, in_file_path in enumerate(tqdm.tqdm(in_list)):
         # Generate output file path
         file_basename = os.path.splitext(os.path.basename(in_file_path))[0]
         out_file_path = os.path.join(args.output_dir, file_basename)
-
-        # List to store all sentence id (vectors)
-        cur_file_ids = []
 
         # Read file chunk by chunk
         with open(in_file_path) as in_file:
@@ -186,7 +190,7 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
                 bpe_tok_time_start = time.time()
                 logging.debug("Tokenizing sentences >")
 
-                curr_ids = utils.TypedList(utils.TypedList)
+                curr_ids = utils.TypedList(np.ndarray)
                 for ft_sent in ft_sentences:
                     ids = None
                     if blingfire:
@@ -206,48 +210,58 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
                         
                         while len(bert_tok_ids) < args.id_seq_length:
                             bert_tok_ids.append(0)
+                        
+                        bert_tok_ids = np.array(list(bert_tok_ids), 
+                            dtype=np.int32)[:args.id_seq_length] 
 
                         if args.mode == "bert-native":
                             ids = bert_tok_ids
+
 
                     if args.mode == "check":
                         # In the "check" mode, we test that both the
                         # bert native tokenizer and blingfire return 
                         # the same thing.
-                        utils.check_equal(ids, bert_tok_ids)
+                        
+                        utils.check_equal(ids.shape, bert_tok_ids.shape)
+                        comp = ids == bert_tok_ids
+                        
+                        if not np.all(comp):
+                            def bert_decode(ids):
+                                return " ".join(ids_to_words[wid] 
+                                    for wid in ids if wid != 0)#.replace(" ##", "")
+
+                            # print("Blingfire ids:")
+                            # print(ids)
+                            print("\n################################################")
+                            print("Mismatch between decoders:")
+                            print(f"\t Blingfire decoded: \"{bert_decode(ids)}\"")
+                            print(f"\t- Bert-native decoded: \"{bert_decode(bert_tok_ids)}\"")
+                            print("################################################\n")
+                            # print("Bert-native tokenizer ids:")
+                            # print(bert_tok_ids)
+                            
+                            num_errors = np.sum(np.logical_not(comp))
+                            out_of = max(np.sum(ids != 0), 
+                                         np.sum(bert_tok_ids != 0))
+
+                            if num_errors/out_of >= 1:
+                                raise ValueError(f"{num_errors} "
+                                             f"different out of {out_of} "
+                                             f"non padding values")
 
                     curr_ids.append(ids)
-                    for ls in curr_ids:
-                        for ids_ in ls:
-                            utils.check_type_one_of(ids_, [int])
 
                 logging.debug(f"< Done tokenizing sentences. It took "
                             f"{time.time() - bpe_tok_time_start} seconds.")
-                logging.debug("Running GC collection. >")
-                gc.collect()
-                logging.debug(f"< Done with GC collection.")
-
+                
                 concat_time_start = time.time()
                 logging.debug("Concatenating the ids. >")
+
                 if not curr_ids:
                     logging.warn(">> Warning: empty cur_file_ids")
 
-                try:
-                    print("Convert back")
-                    id_mat = np.array([list(x) for x in curr_ids], dtype=np.int32)
-
-                except ValueError as err:
-                    print("******************** Broke >")
-                    for x in curr_ids:
-                        if type(x) != list:
-                            print(f"- {type(x)}")
-                        if len(x) != 128:
-                            print(f"<> top : {len(x)}")
-                        for y in x:
-                            if type(x) != int:
-                                print(f"- other level: {type(x)}")
-                    print("<******************** Broke")
-                    exit()
+                id_mat = np.array(list(curr_ids), dtype=np.int32)
 
                 logging.debug(f"< Done Concatenating the ids. Took "
                               f"{time.time() - concat_time_start} seconds.")
@@ -277,7 +291,7 @@ if __name__ == "__main__":
                         if blingfire else None),
                         help="""path to directory of the text-id file (default: 
                                 os.path.dirname(blingfire.__file__))""")
-    parser.add_argument("--base-tok-file", type=str, default="bert_base_tok.bin",
+    parser.add_argument("--base-tok-file", type=str, default="bert_base_cased_tok.bin",
                         help="""file name of the base token id file (default: 
                                 bert_base_tok.bin)""")
     parser.add_argument("--min-sent-len", type=int, default=4, metavar="N",
@@ -295,13 +309,24 @@ if __name__ == "__main__":
     parser.add_argument("--vocab_path", "-rp", type=pathlib.Path,
                         required=True)
     parser.add_argument("--mode", "-m", choices=VALID_MODES,
-                        default="blingfire")
+                        default="bert-native")
+    parser.add_argument("--verbosity", "-v", type=int, 
+                        default=int(logging.INFO), help="""
+                        Verbosity levels in python: 
+                            NOTSET = 0
+                            DEBUG = 10
+                            INFO = 20
+                            WARNING = 30 
+                            WARN = WARNING
+                            ERROR = 40 
+                            CRITICAL = 50 
+                            FATAL = CRITICAL         
+                        """)
     # TODO: add verbosity so we know the book being filtered
 
     args = parser.parse_args()
     # generate_plaintext_corpus(args)
     logging.basicConfig(format='%(message)s')
-    logging.getLogger().setLevel(logging.DEBUG)
     utils.log_args(args)
 
     """

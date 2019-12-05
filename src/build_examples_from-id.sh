@@ -18,8 +18,8 @@ set -e # Close immidiately if a line returns an error.
 set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 # Variables
-DATA_DIR="/network/tmp1/chenant/class/comp-550"   # general data directory
-ID_BOOKS_DIR="$DATA_DIR/tmp/test_clean_id_books"  # downloaded books directory
+DATA_DIR="/network/home/gagnonju/data"   # general data directory
+ID_BOOKS_DIR="$DATA_DIR/cleaned-id-books"  # downloaded books directory
 LOC_BOOKS="$SLURM_TMPDIR/id-books"                # local books directory (to copy above to)
 VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
@@ -27,31 +27,45 @@ VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/b
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"              # Path to the temp local BERT vocabulary file
 TF_OUT_DIR="$SLURM_TMPDIR/tf_examples_dir"        # temp output directory storing the tf example files
 
-
+echo -e "\n###########################################################"
+echo "# Installing python & Tensorflow"
+echo "###########################################################"
 # Load module
 module load python/3.7
+module load python/3.7/tensorflow-gpu/2.0.0
 
-# Copy over pre-downloaded (raw) book text files
-cp -r $ID_BOOKS_DIR "$LOC_BOOKS"
-
+echo -e "\n###########################################################"
+echo "# Activating VENV & installing requirements"
+echo "###########################################################"
 # Set up and activate temporary virtualenv
 if [ ! -d "$VENV_PATH" ] ; then
-  virtualenv $VENV_PATH
+  virtualenv "$VENV_PATH"
 fi
-source $VENV_PATH/bin/activate
+source "$VENV_PATH/bin/activate"
 
 # Installing local requirements (the bookcorpus repository isn't complete)
-python -m pip install numpy scipy pandas
-python -m pip install nltk
-python -m pip install tensorflow
+python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
+python -m pip install nltk -q
 
 # Get the bookcorpus repository and its requirements
 if [ ! -d "$BOOKCORPUS_REPO" ] ; then
-  mkdir $BOOKCORPUS_REPO
-  git clone https://github.com/soskek/bookcorpus.git $BOOKCORPUS_REPO
+  mkdir "$BOOKCORPUS_REPO"
+  git clone https://github.com/soskek/bookcorpus.git "$BOOKCORPUS_REPO"
 fi
 python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt"
 
+echo -e "\n###########################################################"
+echo "# Copying files"
+echo "###########################################################"
+# Copy over pre-downloaded (raw) book text files
+if [ ! -d "$LOC_BOOKS" ]; then
+  mkdir "$LOC_BOOKS"
+fi
+cp "$ID_BOOKS_DIR/"* "$LOC_BOOKS"
+
+echo -e "\n###########################################################"
+echo "# Fetching Vocab"
+echo "###########################################################"
 # Get vocabulary file
 if [ ! -f "$VOCAB_PATH" ] ; then
   wget "$VOCAB_URL" -O "$VOCAB_PATH"
@@ -62,13 +76,15 @@ if [ ! -d "$TF_OUT_DIR" ] ; then
   mkdir "$TF_OUT_DIR"
 fi
 
+echo -e "\n###########################################################"
+echo "# Running build_ex_from-id.py"
+echo "###########################################################"
 # Generate the tf examples
-python -u src/build_ex_from-id.py --input-dir "$LOC_BOOKS" \
-                               --output-dir "$TF_OUT_DIR" \
-                               --vocab-file "$VOCAB_PATH" \
-                               --shuf-sentences False \
-                               --sent-per-book -1 \
-
+python -u build_ex_from-id.py --input-dir "$LOC_BOOKS" \
+                              --output-dir "$TF_OUT_DIR" \
+                              --vocab-file "$VOCAB_PATH" \
+                              --shuf-sentences False \
+                              --sent-per-book -1 
 
 # Copy local temporary cleaned books to data directory (uncomment to copy)
 # cp -r $TF_OUT_DIR $TODO_WRITE_THIS_PATH

@@ -85,20 +85,22 @@ class NBCFilter(FilterInferenceBase):
     """
     # Expected keys of the json config file that has the specific
     # configuration of this filter
-    expected_json_keys = {"model_pkl_path", "vocab_size", "filter_threshold"}
+    expected_json_keys = {"vocab_size", "filter_threshold"}
     expected_merge_modes = {"either", "both"}
 
     # TODO(julesgm, im-ant): Should probably be moved to a separate file.
-    def __init__(self, model_config_path: utils.PathStr):
+    def __init__(self, model_config_path: utils.PathStr, 
+                 model_ckpt_path: utils.PathStr):
         """ Loads the model.
         Arguments:
             model_config_path: Where the config.json file is saved.
+            model_ckpt_path: Pickle save of the model
         """
         # Call the constructor of the base class.
         super().__init__(model_config_path, self.expected_json_keys)
 
         # Load the NBC model that was trained with the trainer.
-        with open(self._config["model_pkl_path"], "rb") as fin:
+        with open(model_ckpt_path, "rb") as fin:
             # We specify the class of the model with an inline annotation
             self._model: naive_bayes.MultinomialNB = pickle.load(fin)
 
@@ -149,7 +151,8 @@ def main(args: argparse.Namespace):
     logging.info("Loading the filter.")
     # Construct the correct filter class for the argument we received in the
     # command line.
-    filter_ = FILTER_MAP[args.filter_type](args.json_config_path)
+    filter_ = FILTER_MAP[args.filter_type](args.json_config_path,
+                                           args.model_ckpt_path)
 
     ###########################################################################
     # 2. Filter data & save it
@@ -161,7 +164,7 @@ def main(args: argparse.Namespace):
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
     
-    reader = tf_example_utils.readFromTfExample(
+    reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
         shuffle_buffer_size=args.shuffle_buffer_size,
         num_map_threads=args.num_map_threads, 
@@ -222,7 +225,7 @@ if __name__ == "__main__":
                             CRITICAL = 50 
                             FATAL = CRITICAL         
                         """)
-                    
+    parser.add_argument("--model_ckpt_path", type=pathlib.Path)
     parser.add_argument("--shuffle_buffer_size", type=int, 
                         help=("shuffle_buffer_size for tf.data.Dataset of "
                               "the main data loader."))

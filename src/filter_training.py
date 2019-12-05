@@ -28,7 +28,7 @@ import tqdm
 import tf_example_utils
 import utils
 
-SAMPLE_LEN = 128
+NUMBER_TO_SAMPLE = 16712
 
 class FilterAbstractTrainer:
     """Base class of all Filter Trainer instances.
@@ -67,7 +67,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """Smart filter using a Naive Bayes Classifier.
     Saves itself with the pickle module. Prototypical implementation.
     """
-    expected_json_keys = {"hyperparams", "vocab_size", "data_prep_batch_size"}
+    expected_json_keys = {"hyperparams", "vocab_size"}
 
     def __init__(self, config_path: utils.PathStr):
         super().__init__(config_path, self.expected_json_keys)
@@ -94,13 +94,6 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
 
         lengths = []
         packs = []
-
-        # for sample in itertools.islice(samples_a, 0, 100, 10):
-        #     print("# Input Ids: ######################################")
-        #     print(sample["input_ids"])
-        #     print("# Segment Ids: ####################################")
-        #     print(sample["segment_ids"])
-        #     print("")
 
         for i, samples in enumerate([samples_a, samples_b]):
             # The weird [1:-1] is to remove the <cls> token and the <sep>
@@ -133,18 +126,12 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
 
 
     def train(self, data_from_labeled_set: tf.data.Dataset, 
-              data_from_unlabeled_set: tf.data.Dataset):
-
-        utils.check_type_one_of(data_from_labeled_set, [tf.data.Dataset])
-        utils.check_type_one_of(data_from_unlabeled_set, [tf.data.Dataset])
-
+              data_from_unlabeled_set: List[tf.Tensor],
+              batch_size: int):
+        logging.info("Split and Stack Sentences")
         data_from_labeled_set, data_from_unlabeled_set = self._stack_per_sent(
             data_from_labeled_set, data_from_unlabeled_set)
 
-        tf.random.shuffle(data_from_unlabeled_set)
-        data_from_unlabeled_set = data_from_unlabeled_set[
-            :len(data_from_labeled_set)]
-        
         # Concatenate the `positive` and the `negative` examples.
         print("\nLABELED")
         for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
@@ -163,7 +150,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
         pre_concat = []
-        batch_size = self._config["data_prep_batch_size"]
+        
         upper_bound = x.shape[0] // batch_size + 1
         logging.info("Creating Bag of Word Features")
         for i in tqdm.tqdm(range(upper_bound)):
@@ -201,34 +188,25 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         logging.info("Done saving Model.")
 
 
-def load_data(path: utils.PathStr, num_map_threads: int = 4,
-              num_epochs: int = 1, shuffle_buffer_size: int = 1,
-              force: bool = False,
+def load_data(paths: utils.PathStr, num_map_threads: int, sample_len: int
               ) -> tf.data.Dataset:
     """Prototypical version of the flattened labeled dataset loader.
     
     Arguments:  
-        path: Paths of the tf.Example file.
-        sample_len: Length in number of tokens of the sample.
-        num_epochs: Number of times to loop over the data.
+        paths: paths of the tf.Example files.
         num_map_threads: Number fo threads to use for the deserialization
                         of the tf.Example bytes to Python (Tensorflow) objects.
-        shuffle_buffer_size: the data is loaded this number of samples at the 
-                             time, and these "shuffle batches" have their sample 
-                             shuffled.
     Returns:
         A tf.data.Dataset object that returns the samples one at the time.
     """
     # This is kind of dumb, but the whole dataset is very small,
     # so there is no problem
-    paths = list(glob.glob(str(path)))
     if not paths:
-        raise ValueError("Didn't find any files with the glob pattern. "
-                         f"Got the pattern {path}")
+        raise ValueError()
 
-    return tf_example_utils.readFromTfExample(paths, 
-        sample_len=SAMPLE_LEN, shuffle_buffer_size=shuffle_buffer_size,
-        num_map_threads=num_map_threads, num_epochs=num_epochs)
+    return tf_example_utils.read_from_tf_example(paths, 
+        sample_len=sample_len, shuffle_buffer_size=1,
+        num_map_threads=num_map_threads, num_epochs=1)
 
     
 # Like in filter_inference, this is a map between the filter names
@@ -240,10 +218,13 @@ MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       # ... Some more. Multiple names per entry are encouraged.
                       )
 
-def main(flattened_labeled_data_path: utils.PathStr, 
-         model_config_path: utils.PathStr, model_type: str,
-         trainer_save_path: utils.PathStr, unlabeled_dataset_path: utils.PathStr, 
-         verbosity: int = int(logging.DEBUG), force: bool = False):
+def main(batch_size: int, model_config_path: utils.PathStr, 
+         model_type: str,
+         trainer_save_path: utils.PathStr, 
+         glob_pattern_unlabeled_data: utils.PathStr, 
+         glob_pattern_labeled_data: utils.PathStr, 
+         num_threads_reader: int, verbosity: int = int(logging.DEBUG), 
+         sample_len:int = 128):
     """
     Randomly loads an equal amount of unlabeled data to the size of the 
     flattened labeled dataset, then trains the model to be used for smart 
@@ -256,16 +237,18 @@ def main(flattened_labeled_data_path: utils.PathStr,
     Some of the arguments could probably be moved to the configuration file.
 
     Arguments:
+        batch_size:
+            Size of the batches used for feature preparation.
+        model_config_path:
+            Path to the json config file.
         flattened_labeled_data_path: 
             Path of the data to be used to train the filter, after having 
             been transformed to the format that is compatible with the filter.
-        model_config_path:
-            Path to the json config file.
         model_type:
-            Type of model to train.
-        trainer_save_path:
+            Type of machine learning model of the classifier to train.
+        glob_pattern_labeled_data:
             Path of where we should save the model.
-        unlabeled_dataset_path:
+        glob_pattern_unlabeled_data:
             Path to the unlabeled dataset.
         verbosity:
             Verbosity levels in python: 
@@ -285,14 +268,14 @@ def main(flattened_labeled_data_path: utils.PathStr,
     utils.check_type_one_of(model_type, [str])
     utils.check_type_one_of(model_config_path, [str, pathlib.Path])
     utils.check_type_one_of(trainer_save_path, [str, pathlib.Path])
-    utils.check_type_one_of(flattened_labeled_data_path, [str, pathlib.Path])
-    utils.check_type_one_of(unlabeled_dataset_path, [str, pathlib.Path])
+    utils.check_type_one_of(glob_pattern_labeled_data, [str, pathlib.Path])
+    utils.check_type_one_of(glob_pattern_unlabeled_data, [str, pathlib.Path])
 
     # Argument Type Coercions
     model_config_path = pathlib.Path(model_config_path)
     trainer_save_path = pathlib.Path(trainer_save_path)
-    flattened_labeled_data_path = pathlib.Path(flattened_labeled_data_path)
-    unlabeled_dataset_path = pathlib.Path(unlabeled_dataset_path)
+    glob_pattern_labeled_data = pathlib.Path(glob_pattern_labeled_data)
+    glob_pattern_unlabeled_data = pathlib.Path(glob_pattern_unlabeled_data)
 
     # if force or not trainer_save_path.exists():
     # Check that the model type is one of the ones we can handle.
@@ -308,12 +291,25 @@ def main(flattened_labeled_data_path: utils.PathStr,
     logger.setLevel(verbosity)
 
     # Load Data
-    data_from_labeled_set = load_data(flattened_labeled_data_path)
-    data_from_unlabeled_set = load_data(unlabeled_dataset_path)
+    logging.debug(str(glob_pattern_labeled_data))
+    files_labeled = list(glob.glob(str(glob_pattern_labeled_data)))
+    data_from_labeled_set = load_data(paths=
+        files_labeled, 
+        num_map_threads=num_threads_reader, 
+        sample_len=sample_len)
+
+    
+    logging.debug(str(glob_pattern_unlabeled_data))
+    files_unlabeled = glob.glob(str(glob_pattern_unlabeled_data))
+    
+    data_from_unlabeled_set = list(
+        tf_example_utils.tf_example_uniform_sampler(
+            files_unlabeled, sample_len, num_threads_reader, 
+            NUMBER_TO_SAMPLE))
 
     # Trainer Action
     trainer = MODEL_TYPE_MAP[model_type](model_config_path)
-    trainer.train(data_from_labeled_set, data_from_unlabeled_set)
+    trainer.train(data_from_labeled_set, data_from_unlabeled_set, batch_size)
     trainer.save(trainer_save_path)
     logging.info("Done.")
 

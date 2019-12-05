@@ -2,6 +2,7 @@ import collections
 import pathlib
 import random
 import subprocess
+
 from typing import Any, Dict, Iterable, List, Tuple, Type, Union
 
 import numpy as np
@@ -10,6 +11,7 @@ try:
 except ImportError:
   pass
 import tensorflow as tf
+import tqdm
 
 import utils
 
@@ -90,7 +92,11 @@ class WriteAsTfExample:
         self.close()
         
     def _write_one(self, feature_dict):
-      tf_example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+      # This could be made parallel with mutexes ...
+      # Threads would would because writer.write is io bound
+      # and (we hope) it releases the GIL
+      tf_example = tf.train.Example(features=tf.train.Features(
+        feature=feature_dict))
       self._writers[self._writer_index].write(tf_example.SerializeToString())
       self._writer_index = (self._writer_index + 1) % len(self._writers)
 
@@ -171,9 +177,52 @@ class WriteAsTfExample:
         for writer in self._writers:
             writer.close()
 
-def readFromTfExample(paths: List[utils.PathStr], sample_len: int, 
-                      num_epochs: int, num_map_threads: int,
-                      shuffle_buffer_size: int = 1) -> tf.data.Dataset:
+def build_parser_fn(sample_len):
+  feature_description = {
+    "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64,),
+    "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64,),
+    "segment_ids": tf.io.FixedLenFeature([sample_len], tf.int64,),
+    "next_sentence_labels": tf.io.FixedLenFeature([1], tf.int64,)
+    } 
+
+  @tf.function
+  def parser_fn(single_record):
+    parsed_record = tf.io.parse_single_example(single_record, 
+                                               feature_description)
+    return parsed_record
+
+  return parser_fn
+
+def tf_example_uniform_sampler(paths: List[utils.PathStr], sample_len: int,
+                               num_map_threads: int, number_to_sample: int):
+  """
+  """
+  if not paths:
+    raise ValueError("Didn't receive any paths to read from.")
+  if not sample_len > 0:
+    raise ValueError(sample_len)
+  if not num_map_threads > 0:
+    raise ValueError(num_map_threads)
+  if not number_to_sample > 0:
+    raise ValueError(number_to_sample)
+
+  parser_fn = build_parser_fn(sample_len)
+  cache = {}
+  
+  for i in tqdm.tqdm(range(number_to_sample)):
+    path = random.choice(paths)
+    if path not in cache:
+      d = tf.data.Dataset.from_tensor_slices([path])
+      d = d.interleave(tf.data.TFRecordDataset, 
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+        )
+      cache[path] = list(d)
+      
+    yield parser_fn(random.choice(cache[path]))
+
+def read_from_tf_example(paths: List[utils.PathStr], sample_len: int, 
+                         num_epochs: int, num_map_threads: int,
+                         shuffle_buffer_size: int = 1) -> tf.data.Dataset:
   """Creates a Tensorflow parallel dataset reader for the TfExamples.
   Also could support sharding (meaning, seperating the dataset over shards), as
   well as many different features of tf.data
@@ -189,30 +238,25 @@ def readFromTfExample(paths: List[utils.PathStr], sample_len: int,
   Returns:
     A tf.data.Dataset object that returns the samples one at the time.
   """
-  paths = [str(path) for path in paths]
   if not paths:
     raise ValueError("Didn't receive any paths to read from.")
+  if not sample_len > 0:
+    raise ValueError(sample_len)
+  if not num_map_threads > 0:
+    raise ValueError(num_map_threads)
 
-  _feature_description = {
-    "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64,),
-    "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64,),
-    "segment_ids": tf.io.FixedLenFeature([sample_len], tf.int64,),
-    "next_sentence_labels": tf.io.FixedLenFeature([1], tf.int64,)
-    } 
+  paths = [str(path) for path in paths]
 
-  # This just jits the function for the tf.data.Dataset graph
-  @tf.function
-  def _parser_fn(single_record):
-    parsed_record = tf.io.parse_single_example(single_record, _feature_description)
-    return parsed_record
+  parser_fn = build_parser_fn(sample_len)
 
   d = tf.data.Dataset.from_tensor_slices(paths)
   d = d.repeat(num_epochs)
-  d = d.interleave(tf.data.TFRecordDataset, block_length=1
-                  )
+  d = d.interleave(tf.data.TFRecordDataset,     
+    num_parallel_calls=tf.data.experimental.AUTOTUNE
+    )
   d = d.shuffle(shuffle_buffer_size)
-                      
-  return d.map(_parser_fn, num_parallel_calls=num_map_threads)
+
+  return d.map(parser_fn, num_parallel_calls=num_map_threads)
 
 if __name__ == "__main__":
     social_iqa_path = (pathlib.Path(__file__).resolve().parent/
