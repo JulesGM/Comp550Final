@@ -73,16 +73,16 @@ python bpe_text_to_ids_tf_examples.py --bert_vocab_path="$VOCAB_PATH" \
 
 # Train the filter. Right now, runs over the labeled flattened dataset, as
 # a proof of concept (as we don't have the unlabeled data).
-# echo -e "\n####################################################"
-# echo "# Filter Training"
-# echo "####################################################"
-# python filter_training.py --glob_prefix_labeled_data="$OUTPUT_PATH_TF_EXAMPLES" \
-#          --model_config_path="$MODEL_CONFIG_PATH_TRAINING" --model_type=NBC \
-#          --trainer_save_path="$MODEL_SAVE_PATH" \
-#          --glob_prefix_unlabeled_data="$UNLABELED_DIR" \
-#          --verbosity=10 \
-#          --batch_size=1024 \
-#         --num_threads_reader=4
+echo -e "\n####################################################"
+echo "# Filter Training"
+echo "####################################################"
+python filter_training.py --glob_prefix_labeled_data="$OUTPUT_PATH_TF_EXAMPLES" \
+          --model_config_path="$MODEL_CONFIG_PATH_TRAINING" --model_type=NBC \
+          --trainer_save_path="$MODEL_SAVE_PATH" \
+          --glob_prefix_unlabeled_data="$UNLABELED_DIR" \
+          --verbosity=10 \
+          --batch_size=1024 \
+         --num_threads_reader=4
         
 # Run the filter. Right now, runs over the labeled flattened dataset, as
 # a proof of concept (as we don't have the unlabeled data).

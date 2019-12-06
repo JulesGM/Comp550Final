@@ -1,3 +1,4 @@
+fire
 numpy
 scikit-learn
 tqdm

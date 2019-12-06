@@ -163,16 +163,22 @@ def main(args: argparse.Namespace):
     # TODO(julesgm, im-ant): Do this in parallel. 
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
-    
+
+    with open(args.vocab_path) as fin:
+        idx_to_word = fin.read().strip().split("\n")
+    word_to_idx = {i: w for i, w in enumerate(idx_to_word)}
+
     reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
         shuffle_buffer_size=args.shuffle_buffer_size,
         num_map_threads=args.num_map_threads, 
-        num_epochs=1)
+        num_epochs=1, parser_fn=tf_example_utils.build_filter_input_parser_fn(
+            args.max_seq_len))
 
-    with tf_example_utils.WriteAsTfExample(output_files=[args.output_data_path],
-                                           vocab_path=args.vocab_path, 
-                                           max_num_tokens=SAMPLE_LEN) as writer:
+    with tf_example_utils.BERTExampleWriter(output_files=[args.output_data_path],
+                                            vocab_path=args.vocab_path,
+                                            max_num_tokens=args.max_seq_length
+                                            ) as writer:
 
         for i, batch in enumerate(reader.batch(args.batch_size)):        
             # Get the mask from the filter object.
@@ -196,7 +202,11 @@ def main(args: argparse.Namespace):
             print(len(new_output_samples["input_ids"]))
             print(len(new_output_samples["input_ids"]) / len(batch["input_ids"]))
             # Add them to our positive samples.
-            writer.from_feature_batch(new_output_samples)
+            writer.from_feature_batch(new_output_samples,
+                idx_to_words=idx_to_word, word_to_idx=word_to_idx,
+                # The two following numbers are taken form the bert code, and
+                # are expected to not change.
+                masked_lm_prob=0.15, max_predictions_per_seq=20)
 
     logging.info("Done.")
                 
@@ -240,6 +250,7 @@ if __name__ == "__main__":
                         "sentence when only one of the two sentences "
                         "are positive.", choices={"both", "either"},
                         default="either")
+    parser.add_argument("--max_seq_length", "-msl", type=int)
     args = parser.parse_args()
 
     # Logging

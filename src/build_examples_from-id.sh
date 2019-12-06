@@ -18,7 +18,7 @@ set -e # Close immidiately if a line returns an error.
 set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 # Variables
-DATA_DIR="/network/home/gagnonju/data"   # general data directory
+DATA_DIR="/network/home/gagnonju/shared/data"   # general data directory
 ID_BOOKS_DIR="$DATA_DIR/cleaned-id-books"  # downloaded books directory
 LOC_BOOKS="$SLURM_TMPDIR/id-books"                # local books directory (to copy above to)
 VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
@@ -27,25 +27,34 @@ VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/b
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"              # Path to the temp local BERT vocabulary file
 TF_OUT_DIR="$SLURM_TMPDIR/tf_examples_dir"        # temp output directory storing the tf example files
 
-echo -e "\n###########################################################"
-echo "# Installing python & Tensorflow"
-echo "###########################################################"
-# Load module
-module load python/3.7
-module load python/3.7/tensorflow-gpu/2.0.0
 
 echo -e "\n###########################################################"
 echo "# Activating VENV & installing requirements"
 echo "###########################################################"
 # Set up and activate temporary virtualenv
-if [ ! -d "$VENV_PATH" ] ; then
-  virtualenv "$VENV_PATH"
-fi
+# if [ ! -d "$VENV_PATH" ] ; then
+#   virtualenv "$VENV_PATH"
+# fi
+echo -e "\n######################"
+echo "$VENV_PATH"
+rm -rfv "$VENV_PATH"
+virtualenv "$VENV_PATH"
 source "$VENV_PATH/bin/activate"
+echo "######################"
+# module load python/3.7
+
+echo "########"
+echo "# First"
+echo "########"
+
 
 # Installing local requirements (the bookcorpus repository isn't complete)
-python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
-python -m pip install nltk -q
+python -m pip install --user numpy scipy pandas tqdm spacy pygments colored_traceback
+
+echo "########"
+echo "# Second"
+echo "########"
+python -m pip install --user nltk
 
 # Get the bookcorpus repository and its requirements
 if [ ! -d "$BOOKCORPUS_REPO" ] ; then
