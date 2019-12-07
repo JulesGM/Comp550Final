@@ -31,37 +31,21 @@ TF_OUT_DIR="$SLURM_TMPDIR/tf_examples_dir"        # temp output directory storin
 echo -e "\n###########################################################"
 echo "# Activating VENV & installing requirements"
 echo "###########################################################"
-# Set up and activate temporary virtualenv
-# if [ ! -d "$VENV_PATH" ] ; then
-#   virtualenv "$VENV_PATH"
-# fi
-echo -e "\n######################"
-echo "$VENV_PATH"
-rm -rfv "$VENV_PATH"
-virtualenv "$VENV_PATH"
-source "$VENV_PATH/bin/activate"
-echo "######################"
-# module load python/3.7
+module load python/3.7
 
-echo "########"
-echo "# First"
-echo "########"
-
-
-# Installing local requirements (the bookcorpus repository isn't complete)
-python -m pip install --user numpy scipy pandas tqdm spacy pygments colored_traceback
-
-echo "########"
-echo "# Second"
-echo "########"
-python -m pip install --user nltk
+if [ ! -d "$VENV_PATH" ] ; then
+ virtualenv "$VENV_PATH"
+fi
+source "$VENV_PATH/bin/activate" || true
+python -m pip install numpy scipy pandas tqdm spacy pygments \
+  colored_traceback tensorflow-gpu nltk -q
 
 # Get the bookcorpus repository and its requirements
 if [ ! -d "$BOOKCORPUS_REPO" ] ; then
   mkdir "$BOOKCORPUS_REPO"
   git clone https://github.com/soskek/bookcorpus.git "$BOOKCORPUS_REPO"
 fi
-python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt"
+python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt" -q
 
 echo -e "\n###########################################################"
 echo "# Copying files"
@@ -89,7 +73,7 @@ echo -e "\n###########################################################"
 echo "# Running build_ex_from-id.py"
 echo "###########################################################"
 # Generate the tf examples
-python -u build_ex_from-id.py --input-dir "$LOC_BOOKS" \
+python -u build_ex_from_id.py --input-dir "$LOC_BOOKS" \
                               --output-dir "$TF_OUT_DIR" \
                               --vocab-file "$VOCAB_PATH" \
                               --shuf-sentences False \

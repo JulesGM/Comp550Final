@@ -47,7 +47,7 @@ if [ ! -d "$TF_OUT_DIR" ] ; then
 fi
 
 # Generate the tf examples
-python -u build_ex_from-id.py --input-dir "$ID_BOOKS_DIR" \
+python -u build_ex_from_id.py --input-dir "$ID_BOOKS_DIR" \
                                --output-dir "$TF_OUT_DIR" \
                                --vocab-file "$VOCAB_PATH" \
                                --shuf-sentences False \

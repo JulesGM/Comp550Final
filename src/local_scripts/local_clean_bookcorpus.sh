@@ -62,7 +62,7 @@ fi
 echo "#################################################################"
 echo -e "# python src/bookcorpus-cleaning.py"
 echo "#################################################################"
-python "$SCRIPTS_DIR"/bookcorpus-cleaning.py --input-dir "$LOC_BOOKS" \
+python "$SCRIPTS_DIR"/bookcorpus_cleaning.py --input-dir "$LOC_BOOKS" \
                                   --output-dir "$LOC_CLEAN_BOOKS" \
                                   --min-sent-len 4 \
                                   --remove-blank True \

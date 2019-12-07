@@ -63,12 +63,31 @@ class FilterInferenceBase:
         # it needs to be derived by the derived classes
         raise NotImplementedError("Pure Abstract Function")
 
+class NoFilterFilter(FilterInferenceBase):
+    def __init__(self, model_config_path: utils.PathStr,
+                 model_ckpt_path: utils.PathStr):
+        """ Loads the model.
+        Arguments:
+            model_config_path: Where the config.json file is saved.
+            model_ckpt_path: Pickle save of the model
+        """
+        # Call the constructor of the base class.
+        pass
 
-# TODO(julesgm, im-ant, FarzanehAskari): Write other Filter inference classes:
-# - Hand written rules [maybe multiple classes]
-# - Transformer Encoder
-# - LSTM
-# - ? Invent one.
+    def filter(self, samples: tf.Tensor) -> np.ndarray:
+        """Filter the samples.
+        Arguments:
+            samples:
+                The samples from which we create a mask.
+                We are assuming that they are of size BatchSize x SeqLen
+                They Are indices.
+
+        Returns:
+            A numpy array with the boolean filter mask.
+        """
+
+        return tf.ones(len(samples), tf.dtypes.bool)
+
 
 class NBCFilter(FilterInferenceBase):
     """Smart filter using a Naive Bayes Classifier.
@@ -128,7 +147,7 @@ class NBCFilter(FilterInferenceBase):
 
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
-        
+        print(prediction_scores)
         return prediction_scores > self._config["filter_threshold"]
 
 # Map mapping the names of the different filter types to their class.
@@ -136,12 +155,16 @@ class NBCFilter(FilterInferenceBase):
 # and then construct the correct class.
 # Multiple names can point to the same class.
 FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,
-                  nbc=NBCFilter,     
+                  nbc=NBCFilter,
+                  no_filter=NoFilterFilter,
+                  no=NoFilterFilter,
                   # hand_written_rules=HandWrittenRulesFilter,
                   # etc.
                   )
 
 def main(args: argparse.Namespace):
+    utils.check_type_one_of(args.max_seq_len, [int])
+
     # Log the command-line arguments in a pretty way.
     utils.log_args(args, logging.DEBUG)
 
@@ -165,8 +188,8 @@ def main(args: argparse.Namespace):
     # with something else though.
 
     with open(args.vocab_path) as fin:
-        idx_to_word = fin.read().strip().split("\n")
-    word_to_idx = {i: w for i, w in enumerate(idx_to_word)}
+        idx_to_word = [x.strip() for x in fin.read().strip().split("\n")]
+    word_to_idx = {w: i for i, w in enumerate(idx_to_word)}
 
     reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
@@ -175,13 +198,16 @@ def main(args: argparse.Namespace):
         num_epochs=1, parser_fn=tf_example_utils.build_filter_input_parser_fn(
             args.max_seq_len))
 
-    with tf_example_utils.BERTExampleWriter(output_files=[args.output_data_path],
-                                            vocab_path=args.vocab_path,
-                                            max_num_tokens=args.max_seq_length
-                                            ) as writer:
+    with tf_example_utils.BERTExampleWriter(output_files=[
+                args.output_data_path/f"filtered_{i}.tfrecord"
+                for i in range(args.num_output_shards)],
+            vocab_path=args.vocab_path, max_num_tokens=args.max_seq_len
+        ) as writer:
 
         for i, batch in enumerate(reader.batch(args.batch_size)):        
             # Get the mask from the filter object.
+            if args.max_num_batches and i > args.max_num_batches:
+                break
             print(f"Batch {i}")
 
             sent_as = [batch["input_ids"][i][batch["segment_ids"][i] == 0][1: -1]
@@ -211,17 +237,16 @@ def main(args: argparse.Namespace):
     logging.info("Done.")
                 
 
-
 if __name__ == "__main__":
     # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--filter_type", choices=list(FILTER_MAP.keys()), 
-                        help="Which type of filter we are using.")
-    parser.add_argument("--json_config_path", type=pathlib.Path,
+                        required=True, help="Which type of filter we are using.")
+    parser.add_argument("--json_config_path", type=pathlib.Path, required=True,
                         help="Path of the model's configuration file.")
-    parser.add_argument("--input_data_path", type=pathlib.Path,
+    parser.add_argument("--input_data_path", type=pathlib.Path, required=True,
                         help="Path to the data.")
-    parser.add_argument("--output_data_path", type=pathlib.Path,
+    parser.add_argument("--output_data_path", type=pathlib.Path, required=True,
                         help="Prefix of where to save the data.")
     parser.add_argument("--verbosity", "-v", type=int,                     
                         default=10, help="""
@@ -235,22 +260,24 @@ if __name__ == "__main__":
                             CRITICAL = 50 
                             FATAL = CRITICAL         
                         """)
-    parser.add_argument("--model_ckpt_path", type=pathlib.Path)
-    parser.add_argument("--shuffle_buffer_size", type=int, 
+    parser.add_argument("--model_ckpt_path", type=pathlib.Path, required=True)
+    parser.add_argument("--shuffle_buffer_size", type=int, required=True,
                         help=("shuffle_buffer_size for tf.data.Dataset of "
                               "the main data loader."))
-    parser.add_argument("--num_map_threads", type=int, 
+    parser.add_argument("--num_map_threads", type=int, required=True,
                         help="Number of threads to use to de-serialize the "
                              "dataset.")
-    parser.add_argument("--batch_size", type=int, 
+    parser.add_argument("--batch_size", type=int, required=True,
                         help="Size of the batches.")
-    parser.add_argument("--vocab_path", type=pathlib.Path,
+    parser.add_argument("--vocab_path", type=pathlib.Path, required=True,
                         help="Path of BERT's the vocabulary file.")
     parser.add_argument("--merge_mode", "-mm", help="How to deal with a "
                         "sentence when only one of the two sentences "
                         "are positive.", choices={"both", "either"},
                         default="either")
-    parser.add_argument("--max_seq_length", "-msl", type=int)
+    parser.add_argument("--max_seq_len", "-msl", type=int, default=128)
+    parser.add_argument("--num_output_shards", "-nos", type=int, required=True)
+    parser.add_argument("--max_num_batches", "-mnb", type=int, required=True)
     args = parser.parse_args()
 
     # Logging

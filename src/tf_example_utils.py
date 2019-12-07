@@ -104,17 +104,17 @@ class MLMInstance:
 
 
 def create_masked_lm_predictions(ids: List[int], masked_lm_prob: float,
-                                 max_predictions_per_seq, vocab_words, rng,
+                                 max_predictions_per_seq, idx_to_words, rng,
                                  word_to_idx: Dict[str, int],
                                  do_whole_word_mask: bool = True,
                                  ):
     """Mostly copy pasted from BERT.
     Creates the predictions for the masked LM objective.
     """
-    tokens = [vocab_words[id_] for id_ in ids]
+    tokens = [idx_to_words[id_] for id_ in ids]
     cand_indexes = []
 
-    for i, token in enumerate(tokens):
+    for i, (token, id_) in enumerate(zip(tokens, ids)):
         if token == "[CLS]" or token == "[SEP]":
             continue
         # Whole Word Masking means that if we mask all of the wordpieces
@@ -168,8 +168,8 @@ def create_masked_lm_predictions(ids: List[int], masked_lm_prob: float,
                     masked_token = tokens[index]
                 # 10% of the time, replace with random word
                 else:
-                    masked_token = vocab_words[
-                        rng.randint(0, len(vocab_words) - 1)]
+                    masked_token = idx_to_words[
+                        rng.randint(0, len(idx_to_words) - 1)]
 
             output_tokens[index] = masked_token
 
@@ -212,7 +212,7 @@ class BERTExampleWriter(TfRecordWriter):
                 create_masked_lm_predictions(input_ids,
                     masked_lm_prob=masked_lm_prob,
                     max_predictions_per_seq=max_predictions_per_seq,
-                    vocab_words=idx_to_words, rng=random,
+                    idx_to_words=idx_to_words, rng=random,
                     word_to_idx=word_to_idx, do_whole_word_mask=True))
 
             masked_lm_weights = [1.0] * len(masked_lm_ids)
@@ -225,10 +225,11 @@ class BERTExampleWriter(TfRecordWriter):
             features["segment_ids"] = _create_int_feature(segment_ids,
                                                           self._max_num_tokens)
             features["masked_lm_positions"] = _create_int_feature(
-                    masked_lm_positions, self._max_num_tokens)
-            features["masked_lm_ids"] = _create_int_feature(masked_lm_ids)
+                    masked_lm_positions, len(masked_lm_ids))
+            features["masked_lm_ids"] = _create_int_feature(masked_lm_ids,
+                                                            len(masked_lm_ids))
             features["masked_lm_weights"] = _create_float_feature(
-                    masked_lm_weights, self._max_num_tokens)
+                    masked_lm_weights, len(masked_lm_ids))
             features["next_sentence_labels"] = _create_int_feature(
                     [next_sentence_label], 1)
 
@@ -317,12 +318,12 @@ class WriteAsTfExample(TfRecordWriter):
         self._write_one(features)
 
 
-def build_filter_input_parser_fn(sample_len):
+def build_filter_input_parser_fn(sample_len: int):
     feature_description = {
-            "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64, ),
-            "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64, ),
-            "segment_ids": tf.io.FixedLenFeature([sample_len], tf.int64, ),
-            "next_sentence_labels": tf.io.FixedLenFeature([1], tf.int64, )
+            "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "segment_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "next_sentence_labels": tf.io.FixedLenFeature([1], tf.int64)
     }
 
     @tf.function
@@ -330,7 +331,6 @@ def build_filter_input_parser_fn(sample_len):
         parsed_record = tf.io.parse_single_example(single_record,
                                                    feature_description)
         return parsed_record
-
     return parser_fn
 
 

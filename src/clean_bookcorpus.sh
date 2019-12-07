@@ -8,14 +8,13 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 BERT_LIB_PATH="bert"
 # Environmental variables
-DATA_DIR="/network/home/gagnonju/data/"   # general data directory
-BOOKS_DIR="$DATA_DIR/out_txts"          # downloaded books directory
-LOC_BOOKS="$SLURM_TMPDIR/books"                   # local books directory (to copy above to)
+DATA_DIR="/network/home/gagnonju/shared/data"   # general data directory
+BOOKS_DIR="/network/tmp1/chenant/sharing/comp-550/bookcorpus/raw_books/out_txts"          # downloaded books directory
 VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
 LOC_CLEAN_BOOKS="$DATA_DIR/cleaned-id-books"  # local cleaned books dir
 CLEAN_BOOKS="$DATA_DIR/tmp/test_clean_id_books"   # cleaned books directory
-
+#LOC_BOOKS="$DATA_DIR/loc_books"
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"  # Path to the temp local BERT vocabulary file
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
 
@@ -33,17 +32,6 @@ echo "# Installing python"
 echo "###########################################################"
 # Load module
 module load python/3.7
-module load python/3.7/tensorflow-gpu/2.0.0
-
-echo -e "\n###########################################################"
-echo "# Copy the books"
-echo "###########################################################"
-# Copy over pre-downloaded (raw) book text files
-if [ ! -d "$LOC_BOOKS" ] ; then
-  mkdir $"LOC_BOOKS"
-fi
-cp "$BOOKS_DIR/*" "$LOC_BOOKS"
-echo "We have $(ls $LOC_BOOKS | wc -l) books." 
 
 echo -e "\n###########################################################"
 echo "# Building and activating the VENV"
@@ -52,14 +40,14 @@ echo "###########################################################"
 if [ ! -d "$VENV_PATH" ] ; then
   virtualenv "$VENV_PATH"
 fi
-source "$VENV_PATH/bin/activate"
+source "$VENV_PATH/bin/activate" || true
 
 # Installing local requirements (the bookcorpus repository isn't complete)
 echo -e "\n###########################################################"
 echo "# Installing dependencies"
 echo "###########################################################"
 python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
-python -m pip install nltk -q
+python -m pip install nltk tensorflow-gpu -q
 
 echo -e "\n###########################################################"
 echo "# Installing the spacy model"
@@ -88,7 +76,7 @@ echo "###########################################################"
 if [ ! -d "$LOC_CLEAN_BOOKS" ] ; then
   mkdir "$LOC_CLEAN_BOOKS"
 fi
-python bookcorpus-cleaning.py --input-dir "$LOC_BOOKS" \
+python bookcorpus_cleaning.py --input-dir "$BOOKS_DIR" \
                               --output-dir "$LOC_CLEAN_BOOKS" \
                               --min-sent-len 4 \
                               --remove-blank True \
