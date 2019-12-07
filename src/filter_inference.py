@@ -182,7 +182,7 @@ def main(args: argparse.Namespace):
     ###########################################################################
     # The format of the output data may change.
     # We are expecting small arrays of ints in numpy's npz format currently.
-    
+
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
 
