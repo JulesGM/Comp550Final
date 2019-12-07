@@ -269,7 +269,7 @@ class TypedList:
 
 
 def warn(message: str) -> None:
-    logging.warning(f">>> {colorama.Fore.RED}{message.upper()}"
+    logging.warning(f"{colorama.Fore.RED}>>> {message.upper()}"
                     f"{colorama.Style.RESET_ALL}")
 
 
