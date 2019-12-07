@@ -1,10 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=low
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=64G
-#SBATCH --time=20:00:00
-#SBATCH --output=$SLURM_TMPDIR
-#SBATCH --error=$SLURM_TMPDIR
+#SBATCH --partition=main
+#SBATCH --gres=gpu:volta:1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
+#SBATCH --time=24:00:00
+#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/output-pretrain.txt
+#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/error-pretrain.txt
 
 # =============================================================================
 # Pre-train BERT given a directory of tensorflow example (.tfrecord) files.
@@ -17,26 +18,43 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 # Path variables
 PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/final_output" # location of pretraining data dir
-PRETRAIN_OUT_DIR="???"                            # location to put the pre-trained BERT
 PRETRAINING_PY="./src/bert/run_pretraining.py"    # location of the run_pretraining file
+PRETRAIN_OUT_DIR="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/"   # location to put the pre-trained BERT
+PRETRAIN_OUT_LOC="$PRETRAIN_OUT_DIR"      # local directory for pretrained BERT (e.g. $SLURM_TMPDIR/model_out")
+
 
 
 # BERT-trainin variables
-BERT_TRAIN_BATCH_SIZE="32"
+BERT_TRAIN_BATCH_SIZE="32" # originally 32
 BERT_TRAIN_MAX_SEQ_LEN="128"
 BERT_TRAIN_MAX_PRED_PER_SEQ="20"
-BERT_NUM_TRAIN_STEPS="20"         # num training steps, increase for actual pretraining
+BERT_NUM_TRAIN_STEPS="1000000000"    # num training steps, orig is 20, increase for actual pretraining
 BERT_NUM_WARMUP_STEPS="10"
 BERT_TRAIN_LEARNING_RATE="2e-5"
+SAVE_CHECKPOINTS_STEPS="1500"       # 1600 steps is approx. 10 minutes of training on good GPU
+USE_TPU="False"                     # no TPU to use yet
 
 
 # Variables for SLURM paths (shouldn't have to change these)
 VENV_PATH="$SLURM_TMPDIR/cur_venv"              # path of vitual environment
 TRAIN_DATA_LOC="$SLURM_TMPDIR/train_data"       # local copy, pretraining data dir
 BERT_BASE_DIR="$SLURM_TMPDIR/bert-dir"          # local directory to put BERT base
-PRETRAINING_PY="$SLURM_TMPDIR/run_pretraining.py" # local path of run_pretraining.py
-PRETRAIN_OUT_LOC="$SLURM_TMPDIR/model_out"      # local directory for pretrained BERT
 
+# ==
+# Check GPU allocation
+nvidia-smi
+
+# ==
+# Trapping SIGTERM signal in case job is killed early
+exit_script() {
+    echo "Preemption signal, saving myself"
+    trap - SIGTERM # clear the trap
+
+    # Optional: sends SIGTERM to child/sub processes
+    kill -- -$$
+}
+
+trap exit_script SIGTERM
 
 # ==
 # Set up environment
@@ -47,11 +65,11 @@ module load python/3.7
 if [ ! -d "$VENV_PATH" ] ; then
   virtualenv $VENV_PATH
 fi
-source $VENV_PATH/bin/activate
+source $VENV_PATH/bin/activate || true
 
 # Get the packages according to requirement.txt
-python -m pip install "tensorflow >= 1.11.0"
-python -m pip install "tensorflow-gpu  >= 1.11.0"
+#python -m pip install "tensorflow >= 1.11.0" # NOTE no need for this line, redundant
+python -m pip install "tensorflow-gpu  >= 1.11.0" # TODO only use this for actual GPU
 
 
 # ==
@@ -82,11 +100,11 @@ fi
 # ==
 # Run BERT pre-training
 
-# NOTE SUPER HACKY install the version BERT is tested on
-#python -m pip -y uninstall tensorflow tensorflow-gpu
-python -m pip install "tensorflow >= 1.11.0 , < 2.0.0" --force-reinstall
-python -m pip install "tensorflow-gpu  >= 1.11.0, < 2.0.0" --force-reinstall
-
+# NOTE somewhat hacky re-organization of used packages
+python -m pip uninstall --yes tensorflow tensorflow-gpu # Uninstall tf 2.0 used above
+module load cuda/10.0                                   # load gpu-related items
+module load cuda-10.0/cudnn/7.3
+module load python/3.7/tensorflow-gpu/1.15.0rc2
 
 echo "=========="
 echo "Starting BERT pre-training on: : $(date)"
@@ -106,11 +124,12 @@ python -u "$PRETRAINING_PY" \
           --num_train_steps=$BERT_NUM_TRAIN_STEPS \
           --num_warmup_steps=$BERT_NUM_WARMUP_STEPS \
           --learning_rate=$BERT_TRAIN_LEARNING_RATE \
-
+          --save_checkpoints_steps=$SAVE_CHECKPOINTS_STEPS \
+          --use_tpu=$USE_TPU \
 
 
 # ===
-# Copy the pretrained model directory
-# cp -r $PRETRAIN_OUT_LOC $PRETRAIN_OUT_DIR
+# Copy the pretrained model directory (no need, model written to public node directly)
+#cp -r $PRETRAIN_OUT_LOC $PRETRAIN_OUT_DIR
 
 # TODO: maybe also use a grace period so copying is done when job is killed
