@@ -138,20 +138,20 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
                 data_from_labeled_set, data_from_unlabeled_set)
 
         # Concatenate the `positive` and the `negative` examples.
-        print("\nLABELED")
-        for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
-            print(x)
-        all_zeros = sum([tf.reduce_all(x == 0).numpy()
-                         for x in data_from_labeled_set])
-        print(f"number of all zeros: {all_zeros}/{len(data_from_labeled_set)}")
-
-        print("\nUNLABELED")
-        for x in itertools.islice(data_from_unlabeled_set, 0, 100, 10):
-            print(x)
-        all_zeros = sum([tf.reduce_all(x == 0).numpy()
-                         for x in data_from_unlabeled_set])
-        print(
-            f"number of all zeros: {all_zeros}/{len(data_from_unlabeled_set)}")
+        # print("\nLABELED")
+        # for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
+        #     print(x)
+        # all_zeros = sum([tf.reduce_all(x == 0).numpy()
+        #                  for x in data_from_labeled_set])
+        # print(f"number of all zeros: {all_zeros}/{len(data_from_labeled_set)}")
+        #
+        # print("\nUNLABELED")
+        # for x in itertools.islice(data_from_unlabeled_set, 0, 100, 10):
+        #     print(x)
+        # all_zeros = sum([tf.reduce_all(x == 0).numpy()
+        #                  for x in data_from_unlabeled_set])
+        # print(
+        #     f"number of all zeros: {all_zeros}/{len(data_from_unlabeled_set)}")
 
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
@@ -213,11 +213,12 @@ def load_data(paths: List[utils.PathStr], num_map_threads: int, sample_len: int
     # so there is no problem
     if not paths:
         raise ValueError()
-
+    parser_fn = tf_example_utils.build_filter_input_parser_fn(sample_len)
     return tf_example_utils.read_from_tf_example(paths, sample_len=sample_len,
                                                  shuffle_buffer_size=1,
                                                  num_map_threads=num_map_threads,
-                                                 num_epochs=1)
+                                                 num_epochs=1,
+                                                 parser_fn=parser_fn)
 
 
 # Like in filter_inference, this is a map between the filter names
@@ -308,8 +309,7 @@ def main(batch_size: int, model_config_path: utils.PathStr,
     logging.debug(str(glob_pattern_labeled_data))
     files_labeled = list(glob.glob(str(glob_pattern_labeled_data)))
     data_from_labeled_set = load_data(paths=files_labeled,
-                                      num_map_threads=num_threads_reader,
-                                      sample_len=sample_len)
+        num_map_threads=num_threads_reader, sample_len=sample_len,)
 
     logging.debug(str(glob_pattern_unlabeled_data))
     files_unlabeled = glob.glob(str(glob_pattern_unlabeled_data))
@@ -317,7 +317,7 @@ def main(batch_size: int, model_config_path: utils.PathStr,
     data_from_unlabeled_set = list(
             tf_example_utils.tf_example_uniform_sampler(
                     files_unlabeled, sample_len, num_threads_reader,
-                    NUMBER_TO_SAMPLE))
+                    tf_example_utils.build_filter_input_parser_fn(sample_len)))
 
     # Trainer Action
     trainer = MODEL_TYPE_MAP[model_type](model_config_path)

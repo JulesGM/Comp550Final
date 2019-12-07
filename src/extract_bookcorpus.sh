@@ -27,13 +27,14 @@ BOOKS_DIR="$DATA_DIR/bookcorpus/raw_books"      # path to the output books
 
 # Load module
 module load python/3.7
-
+python -m pip intall tensorflow-gpu
 
 # Create temporary virtual environment and activate
+rm -rfv "$VENV_PATH"
 if [ ! -d "$VENV_PATH" ] ; then
   virtualenv $VENV_PATH
 fi
-source $VENV_PATH/bin/activate
+source $VENV_PATH/bin/activate || true
 
 
 # Clone the bookcorpus repository
