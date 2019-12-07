@@ -45,18 +45,6 @@ BERT_BASE_DIR="$SLURM_TMPDIR/bert-dir"          # local directory to put BERT ba
 nvidia-smi
 
 # ==
-# Trapping SIGTERM signal in case job is killed early
-exit_script() {
-    echo "Preemption signal, saving myself"
-    trap - SIGTERM # clear the trap
-
-    # Optional: sends SIGTERM to child/sub processes
-    kill -- -$$
-}
-
-trap exit_script SIGTERM
-
-# ==
 # Set up environment
 echo "Setting up environment: $(date)"
 module load python/3.7
