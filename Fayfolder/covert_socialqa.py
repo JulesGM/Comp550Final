@@ -11,7 +11,6 @@ import os
 import json
 
 path_to_socialqa = pwd
-train_read = "socialIQa_v1.4_trn.jsonl"
 
 with open(os.path.join(path_to_socialqa,"socialIQa_v1.4_trn.jsonl"), 'r') as handle:
     train_socialqa = [json.loads(line) for line in handle]
@@ -31,7 +30,7 @@ for index,social in enumerate(train_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= index
+  test_new_social["id"]= "train" + str(index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -76,7 +75,7 @@ for index,social in enumerate(dev_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= index
+  test_new_social["id"]= "dev" + str(index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -119,7 +118,7 @@ for index,social in enumerate(test_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= index
+  test_new_social["id"]= "test" + str(index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -151,3 +150,7 @@ for index,social in enumerate(test_socialqa):
 
 with open(os.path.join(path_to_socialqa,"socialIQa_test.jsonl"), 'w') as f:
   json.dump(test_socialqa, f)
+
+from google.colab import drive
+drive.mount('/content/gdrive')
+
