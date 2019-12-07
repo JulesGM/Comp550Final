@@ -7,23 +7,25 @@
 #SBATCH --error=$SLURM_TMPDIR
 
 # =============================================================================
-# Pre-train BERT
+# Pre-train BERT given a directory of tensorflow example (.tfrecord) files.
+# Outputs the pretrained model to a directory of choice.
 #
-# TODO WRITE MORE
 # =============================================================================
 set -e # Close immidiately if a line returns an error.
 set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 
 # Path variables
-PRETRAIN_DATA_DIR="???"                           # location of pretraining data dir
+PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/final_output" # location of pretraining data dir
 PRETRAIN_OUT_DIR="???"                            # location to put the pre-trained BERT
+PRETRAINING_PY="./src/bert/run_pretraining.py"    # location of the run_pretraining file
+
 
 # BERT-trainin variables
 BERT_TRAIN_BATCH_SIZE="32"
 BERT_TRAIN_MAX_SEQ_LEN="128"
 BERT_TRAIN_MAX_PRED_PER_SEQ="20"
-BERT_NUM_TRAIN_STEPS="20"
+BERT_NUM_TRAIN_STEPS="20"         # num training steps, increase for actual pretraining
 BERT_NUM_WARMUP_STEPS="10"
 BERT_TRAIN_LEARNING_RATE="2e-5"
 
@@ -38,6 +40,7 @@ PRETRAIN_OUT_LOC="$SLURM_TMPDIR/model_out"      # local directory for pretrained
 
 # ==
 # Set up environment
+echo "Setting up environment: $(date)"
 module load python/3.7
 
 # Create temporary virtual environment and activate
@@ -52,14 +55,10 @@ python -m pip install "tensorflow-gpu  >= 1.11.0"
 
 
 # ==
-# Download the pre-training script and requirements
-wget --output-document=$PRETRAINING_PY \
-     https://raw.githubusercontent.com/google-research/bert/master/run_pretraining.py
-
-
-# ==
 # Get BERT base cased model if not present
 if [ ! -d "$BERT_BASE_DIR" ] ; then
+  echo "Downloading BERT Cased: $(date)"
+
   # Download bert base model
   wget --output-document="$SLURM_TMPDIR/bertcased.zip" \
      https://storage.googleapis.com/bert_models/2018_10_18/cased_L-12_H-768_A-12.zip
@@ -74,7 +73,7 @@ fi
 
 # ==
 # Copy the tf-example pretraining data to local directory
-
+echo "Setting up pretraining data: $(date)"
 if [ ! -d "$TRAIN_DATA_LOC" ] ; then
   cp -r $PRETRAIN_DATA_DIR $TRAIN_DATA_LOC
 fi
@@ -83,7 +82,18 @@ fi
 # ==
 # Run BERT pre-training
 
-python -u $PRETRAINING_PY \
+# NOTE SUPER HACKY install the version BERT is tested on
+#python -m pip -y uninstall tensorflow tensorflow-gpu
+python -m pip install "tensorflow >= 1.11.0 , < 2.0.0" --force-reinstall
+python -m pip install "tensorflow-gpu  >= 1.11.0, < 2.0.0" --force-reinstall
+
+
+echo "=========="
+echo "Starting BERT pre-training on: : $(date)"
+echo "=========="
+
+
+python -u "$PRETRAINING_PY" \
           --input_file="$TRAIN_DATA_LOC/*.tfrecord" \
           --output_dir=$PRETRAIN_OUT_LOC \
           --do_train=True \
@@ -96,6 +106,7 @@ python -u $PRETRAINING_PY \
           --num_train_steps=$BERT_NUM_TRAIN_STEPS \
           --num_warmup_steps=$BERT_NUM_WARMUP_STEPS \
           --learning_rate=$BERT_TRAIN_LEARNING_RATE \
+
 
 
 # ===
