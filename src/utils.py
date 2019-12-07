@@ -7,6 +7,7 @@ from typing import Any, List, Optional, Iterable, \
 from urllib import request
 import zipfile
 
+import colorama
 import numpy as np
 
 PathStr = Union[str, pathlib.Path]
@@ -265,6 +266,11 @@ class TypedList:
 
     def __len__(self):
         return len(self._ls)
+
+
+def warn(message: str) -> None:
+    logging.warning(f">>> {colorama.Fore.RED}{message.upper()}"
+                    f"{colorama.Style.RESET_ALL}")
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ try:
     import colored_traceback.auto
 except ImportError:
     pass
+import colorama
 import numpy as np
 import spacy
 import tqdm
@@ -94,7 +95,8 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
     :param args: ArgumentParser-parsed arguments
     :return: None
     """
-    
+
+
     if not args.mode in VALID_MODES:
         raise ValueError(f"The argument 'mode' needs to be one of "
                          f"{VALID_MODES}, got {args.mode}.")
@@ -117,6 +119,11 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
 
     # Get list of input file paths
     in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.txt")))
+    if hasattr(args, "max_number_of_books"):
+        in_list = in_list[:args.max_number_of_books]
+
+        logging.warning(f"{colorama.Fore.RED}>>> USING A MAX NUMBER OF BOOKS <<<"
+                        f"{colorama.Style.RESET_ALL}")
 
     # Load blingfire textid model
     if args.mode == "blingfire" and platform.system() == "Darwin":
@@ -141,6 +148,8 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
     if args.mode != "blingfire":
         print("WARNING: We aren't in a mode that doesn't "
               f"exclusively use Blingfire. Will be slow.\nMode: {args.mode}")
+
+    logging.info(f"Main Loop - {args.mode}")
     for i, in_file_path in enumerate(tqdm.tqdm(in_list)):
         # Generate output file path
         file_basename = os.path.splitext(os.path.basename(in_file_path))[0]
@@ -153,9 +162,9 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
             # correctly get full sentences.
             # The length of the chunks at 100k is the longuest that doesn't
             # break spacy's sentence tokenizer.
-            logging.info("Loading a file >")
+            logging.debug("Loading a file >")
             file_text = in_file.read().strip()
-            logging.info("< Done loading a file")
+            logging.debug("< Done loading a file")
 
             for i in range(len(file_text) // CHUNK_MAX_LEN):
                 logging.debug("Chunking. >")
@@ -281,7 +290,7 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     # Parsing input arguments
     parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
-
+    parser.add_argument("--max_number_of_books", "-mnob", type=int,)
     parser.add_argument("--input-dir", type=str, required=True,
                         help="path to input directory to read from (default: cwd)")
     parser.add_argument("--output-dir", type=str, required=True,
@@ -309,7 +318,7 @@ if __name__ == "__main__":
     parser.add_argument("--vocab_path", "-rp", type=pathlib.Path,
                         required=True)
     parser.add_argument("--mode", "-m", choices=VALID_MODES,
-                        default="bert-native")
+                        required=True)
     parser.add_argument("--verbosity", "-v", type=int, 
                         default=int(logging.INFO), help="""
                         Verbosity levels in python: 
@@ -328,6 +337,7 @@ if __name__ == "__main__":
     # generate_plaintext_corpus(args)
     logging.basicConfig(format='%(message)s')
     utils.log_args(args)
+    logging.getLogger().setLevel(args.verbosity)
 
     """
     TODO:

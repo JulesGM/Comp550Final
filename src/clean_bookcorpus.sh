@@ -47,7 +47,7 @@ echo -e "\n###########################################################"
 echo "# Installing dependencies"
 echo "###########################################################"
 python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
-python -m pip install nltk tensorflow-gpu -q
+python -m pip install nltk tensorflow-gpu colorama -q
 
 echo -e "\n###########################################################"
 echo "# Installing the spacy model"
@@ -85,4 +85,5 @@ python bookcorpus_cleaning.py --input-dir "$BOOKS_DIR" \
                               --oov-id 100 \
                               --vocab_path "$VOCAB_PATH" \
                               --base-tok-file "bert_base_cased_tok.bin" \
-                              --mode "blingfire"
+                              --mode "blingfire" \
+                              --max_number_of_books 50

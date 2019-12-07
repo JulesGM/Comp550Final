@@ -22,7 +22,7 @@ import os
 import pathlib
 import random
 import re
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import numpy as np
 import tqdm
@@ -31,7 +31,7 @@ import utils
 import tf_example_utils
 
 
-def sample_rand_sent(file_paths: List[str], n: int,
+def sample_rand_sent(file_paths: List[str], n: int, bad_files: Set[str],
                      npy_cache: Dict[str, np.ndarray]) -> np.ndarray:
     """
     Sample a matrix of n random sentences of length l, given the file paths
@@ -40,12 +40,12 @@ def sample_rand_sent(file_paths: List[str], n: int,
 
     :param file_paths: list of of paths to .npy files we sample from
     :param n: number of samples we want to generate
-    :param l: sequence length of each sentence (default: 128)
+    :bad_files: names of the files we detected we shouldn't read from
+    :npy_cache: cache of the parsed .npy files
     :return: np.ndarray of sampled sentences (in id)
     """
 
     count = 0
-    bad_files = set()
     # Go over each book and sample
     while count < n:
         if len(bad_files) == len(file_paths):
@@ -56,11 +56,16 @@ def sample_rand_sent(file_paths: List[str], n: int,
             continue
         if target_file not in npy_cache:
             new_file = np.load(target_file)
-            if any(x == 0 for x in new_file.shape):
-                logging.info(f"skipped one file - it was empty: {target_file}")
+            if any(x == 0 for x in new_file.shape) or len(new_file == 0):
                 bad_files.add(target_file)
+                logging.info(f"Empty file (# {len(bad_files)} / "
+                             f"{len(file_paths)}): {target_file}")
+
                 continue
             else:
+                if len(new_file) == 0:
+                    raise RuntimeError("We were adding an empty file to "
+                                       "the cache. This should not happen.")
                 npy_cache[target_file] = new_file
         cur_book_mat = npy_cache[target_file]
         count += 1
@@ -84,8 +89,10 @@ def generate_tf_example(args: argparse.Namespace,
     logging.debug(" - " + "\n - ".join(in_list))
 
     # Iterate through each book file
-    logging.info("generate_tf_example:")
+    logging.info("generate_tf_example. This is an unreliable progress bar.:")
     npy_cache = {}
+    bad_files = set() # Files that are detected as being bad. We don't want
+    # to read from them over and over.
     for i, in_file_path in enumerate(tqdm.tqdm(in_list)):
         logging.debug("[%d / %d] : %s" % (i + 1, len(in_list), in_file_path))
         # Load id matrix
@@ -120,7 +127,8 @@ def generate_tf_example(args: argparse.Namespace,
         # Pre-sample the random sentence to follow
         rand_sent_mat = np.array(list(sample_rand_sent(in_list,
                                                        num_rand_next_send,
-                                                       npy_cache)))
+                                                       bad_files=bad_files,
+                                                       npy_cache=npy_cache)))
         rand_sent_mat_idx = 0
 
         # Add to tf example
@@ -147,6 +155,9 @@ def main(args: argparse.Namespace) -> None:
     :return: None
     """
     utils.log_args(args)
+
+    if args.sent_per_book != -1:
+        utils.warn("Using a max number of sentences per book")
 
     # Initialize the list of output files to write the examples to
     output_files = []

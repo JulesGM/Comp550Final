@@ -183,9 +183,11 @@ def main(args: argparse.Namespace):
     # The format of the output data may change.
     # We are expecting small arrays of ints in numpy's npz format currently.
     
-    # TODO(julesgm, im-ant): Do this in parallel. 
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
+
+    if hasattr(args, "max_num_batches"):
+        utils.warn("filter_inference.py: Using a max_num_batches")
 
     with open(args.vocab_path) as fin:
         idx_to_word = [x.strip() for x in fin.read().strip().split("\n")]
@@ -230,8 +232,6 @@ def main(args: argparse.Namespace):
             # Add them to our positive samples.
             writer.from_feature_batch(new_output_samples,
                 idx_to_words=idx_to_word, word_to_idx=word_to_idx,
-                # The two following numbers are taken form the bert code, and
-                # are expected to not change.
                 masked_lm_prob=0.15, max_predictions_per_seq=20)
 
     logging.info("Done.")
@@ -277,7 +277,9 @@ if __name__ == "__main__":
                         default="either")
     parser.add_argument("--max_seq_len", "-msl", type=int, default=128)
     parser.add_argument("--num_output_shards", "-nos", type=int, required=True)
-    parser.add_argument("--max_num_batches", "-mnb", type=int, required=True)
+    parser.add_argument("--max_num_batches", "-mnb", type=int,
+                        help="If you don't want a max, just don't "
+                             "use the argument.")
     args = parser.parse_args()
 
     # Logging

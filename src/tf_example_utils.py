@@ -12,6 +12,7 @@ except ImportError:
 import numpy as np
 import tensorflow as tf
 import tqdm
+from typing import TypeVar
 
 import utils
 
@@ -52,8 +53,9 @@ def _create_int_feature(values, feature_len):
 def _create_float_feature(values, feature_len):
     feature_list = list(values)
     utils.check_equal(len(feature_list), feature_len)
+
     feature = tf.train.Feature(float_list=tf.train.FloatList(
-            value=feature_list))
+            value=list(feature_list)))
     return feature
 
 
@@ -195,6 +197,13 @@ class BERTExampleWriter(TfRecordWriter):
         super().__init__(output_files=output_files, vocab_path=vocab_path,
                          max_num_tokens=max_num_tokens)
 
+    T = TypeVar("T")
+    @staticmethod
+    def _pad(feature: List[T], length: int, padding_value: T) -> List[T]:
+        while len(feature) < length:
+            feature.append(padding_value)
+        return feature[:length]
+
     def from_feature_batch(self, batch, idx_to_words, word_to_idx,
                            masked_lm_prob: float, max_predictions_per_seq=0):
         """
@@ -225,11 +234,14 @@ class BERTExampleWriter(TfRecordWriter):
             features["segment_ids"] = _create_int_feature(segment_ids,
                                                           self._max_num_tokens)
             features["masked_lm_positions"] = _create_int_feature(
-                    masked_lm_positions, len(masked_lm_ids))
-            features["masked_lm_ids"] = _create_int_feature(masked_lm_ids,
-                                                            len(masked_lm_ids))
+                    self._pad(masked_lm_positions, max_predictions_per_seq, 0),
+                    max_predictions_per_seq)
+            features["masked_lm_ids"] = _create_int_feature(
+                    self._pad(masked_lm_ids, max_predictions_per_seq, 0),
+                    max_predictions_per_seq)
             features["masked_lm_weights"] = _create_float_feature(
-                    masked_lm_weights, len(masked_lm_ids))
+                    self._pad(masked_lm_weights, max_predictions_per_seq, 0.0),
+                    max_predictions_per_seq)
             features["next_sentence_labels"] = _create_int_feature(
                     [next_sentence_label], 1)
 
