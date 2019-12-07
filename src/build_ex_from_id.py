@@ -31,7 +31,24 @@ import utils
 import tf_example_utils
 
 
-def sample_rand_sent(file_paths: List[str], n: int, bad_files: Set[str],
+def maybe_load_and_cache(file_name, bad_files, cache, total_num_files):
+    if file_name in bad_files:
+        return None
+    if file_name not in cache:
+        new_file = np.load(file_name)
+        if len(new_file) == 0:
+            bad_files.add(file_name)
+            logging.info(f"Empty file (# {len(bad_files)} / "
+                         f"{total_num_files}): {file_name}")
+            return None
+        else:
+            cache[file_name] = new_file
+            return new_file
+    else:
+        return cache[file_name]
+
+
+def sample_rand_sent(file_paths_set: Set[str], n: int, bad_files: Set[str],
                      npy_cache: Dict[str, np.ndarray]) -> np.ndarray:
     """
     Sample a matrix of n random sentences of length l, given the file paths
@@ -48,26 +65,14 @@ def sample_rand_sent(file_paths: List[str], n: int, bad_files: Set[str],
     count = 0
     # Go over each book and sample
     while count < n:
-        if len(bad_files) == len(file_paths):
+        if len(bad_files) == len(file_paths_set):
             raise RuntimeError("All the files are bad")
         # Open random book and sample random sentence indices
-        target_file = random.choice(file_paths)
-        if target_file in bad_files:
+        target_file = random.choice(list(file_paths_set - bad_files))
+        cur_book_mat = maybe_load_and_cache(target_file, bad_files, npy_cache,
+                                            len(file_paths_set))
+        if cur_book_mat is None:
             continue
-        if target_file not in npy_cache:
-            new_file = np.load(target_file)
-            if any(x == 0 for x in new_file.shape) or len(new_file == 0):
-                bad_files.add(target_file)
-                logging.info(f"Empty file (# {len(bad_files)} / "
-                             f"{len(file_paths)}): {target_file}")
-
-                continue
-            else:
-                if len(new_file) == 0:
-                    raise RuntimeError("We were adding an empty file to "
-                                       "the cache. This should not happen.")
-                npy_cache[target_file] = new_file
-        cur_book_mat = npy_cache[target_file]
         count += 1
 
         yield random.choice(cur_book_mat)
@@ -86,6 +91,7 @@ def generate_tf_example(args: argparse.Namespace,
 
     # Get list of all available books
     in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.npy")))
+    in_list_set = set(in_list)
     logging.debug(" - " + "\n - ".join(in_list))
 
     # Iterate through each book file
@@ -96,10 +102,9 @@ def generate_tf_example(args: argparse.Namespace,
     for i, in_file_path in enumerate(tqdm.tqdm(in_list)):
         logging.debug("[%d / %d] : %s" % (i + 1, len(in_list), in_file_path))
         # Load id matrix
-        if in_file_path not in npy_cache:
-            npy_cache[in_file_path] = np.load(in_file_path)
-        id_mat = npy_cache[in_file_path]
-        if any(x == 0 for x in id_mat.shape):
+        id_mat = maybe_load_and_cache(in_file_path, bad_files, npy_cache,
+                                      len(in_list))
+        if id_mat is None:
             continue
 
         # Figure out how many rows do we want to sample from each book
@@ -125,7 +130,7 @@ def generate_tf_example(args: argparse.Namespace,
                                               replace=False)
 
         # Pre-sample the random sentence to follow
-        rand_sent_mat = np.array(list(sample_rand_sent(in_list,
+        rand_sent_mat = np.array(list(sample_rand_sent(in_list_set,
                                                        num_rand_next_send,
                                                        bad_files=bad_files,
                                                        npy_cache=npy_cache)))

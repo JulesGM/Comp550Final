@@ -10,7 +10,6 @@ BERT_LIB_PATH="bert"
 # Environmental variables
 DATA_DIR="/network/home/gagnonju/shared/data"   # general data directory
 BOOKS_DIR="/network/tmp1/chenant/sharing/comp-550/bookcorpus/raw_books/out_txts"          # downloaded books directory
-VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
 LOC_CLEAN_BOOKS="$DATA_DIR/cleaned-id-books"  # local cleaned books dir
 CLEAN_BOOKS="$DATA_DIR/tmp/test_clean_id_books"   # cleaned books directory
@@ -18,6 +17,7 @@ CLEAN_BOOKS="$DATA_DIR/tmp/test_clean_id_books"   # cleaned books directory
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"  # Path to the temp local BERT vocabulary file
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
 
+# source venv_setup.sh
 
 # Get vocabulary file
 if [ ! -f "$VOCAB_PATH" ] ; then
@@ -27,42 +27,6 @@ if [ ! -f "$VOCAB_PATH" ] ; then
   wget "$VOCAB_URL" -O "$VOCAB_PATH"
 fi
 
-echo -e "\n###########################################################"
-echo "# Installing python"
-echo "###########################################################"
-# Load module
-module load python/3.7
-
-echo -e "\n###########################################################"
-echo "# Building and activating the VENV"
-echo "###########################################################"
-# Set up and activate temporary virtualenv
-if [ ! -d "$VENV_PATH" ] ; then
-  virtualenv "$VENV_PATH"
-fi
-source "$VENV_PATH/bin/activate" || true
-
-# Installing local requirements (the bookcorpus repository isn't complete)
-echo -e "\n###########################################################"
-echo "# Installing dependencies"
-echo "###########################################################"
-python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
-python -m pip install nltk tensorflow-gpu colorama -q
-
-echo -e "\n###########################################################"
-echo "# Installing the spacy model"
-echo "###########################################################"
-python -m spacy download en_core_web_sm -q
-
-echo -e "\n###########################################################"
-echo "# Downloading the bookcorpus & installing its requirements"
-echo "###########################################################"
-# Get the bookcorpus repository and its requirements
-if [ ! -d "$BOOKCORPUS_REPO" ] ; then
-  mkdir "$BOOKCORPUS_REPO"
-  git clone https://github.com/soskek/bookcorpus.git "$BOOKCORPUS_REPO"
-fi
-python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt" -q
 echo -e "\n###########################################################"
 echo "# Fixing BERT for TF 2.0"
 echo "###########################################################"
@@ -86,4 +50,4 @@ python bookcorpus_cleaning.py --input-dir "$BOOKS_DIR" \
                               --vocab_path "$VOCAB_PATH" \
                               --base-tok-file "bert_base_cased_tok.bin" \
                               --mode "blingfire" \
-                              --max_number_of_books 50
+                              # --max_number_of_books 50 # WARNS

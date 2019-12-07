@@ -186,7 +186,7 @@ def main(args: argparse.Namespace):
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
 
-    if hasattr(args, "max_num_batches"):
+    if args.max_num_batches:
         utils.warn("filter_inference.py: Using a max_num_batches")
 
     with open(args.vocab_path) as fin:
@@ -277,7 +277,7 @@ if __name__ == "__main__":
                         default="either")
     parser.add_argument("--max_seq_len", "-msl", type=int, default=128)
     parser.add_argument("--num_output_shards", "-nos", type=int, required=True)
-    parser.add_argument("--max_num_batches", "-mnb", type=int,
+    parser.add_argument("--max_num_batches", "-mnb", type=int, default=None,
                         help="If you don't want a max, just don't "
                              "use the argument.")
     args = parser.parse_args()

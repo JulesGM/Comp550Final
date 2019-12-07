@@ -25,16 +25,7 @@ FILTERED_OUTPUT_PATH="$DATA_DIR/final_output"
 NUM_TOKENS=128
 FORCE="True" # "True" or "False"
 
-VENV_PATH="$SLURM_TMPDIR/cur_venv"
-module load python/3.7
-# Set up and activate temporary virtualenv
-if [ ! -d "$VENV_PATH" ] ; then
-  virtualenv "$VENV_PATH"
-fi
-source "$VENV_PATH/bin/activate" || true
-python -m pip install numpy scipy pandas tqdm spacy pygments colored_traceback -q
-python -m pip install nltk fire scikit-learn tensorflow-gpu -q
-
+source ./venv_setup.sh
 
 echo -e "\n###################"
 echo -e "###################"
@@ -94,7 +85,7 @@ echo "# bpe_text_to_ids_tf_examples.py:"
 echo "####################################################"
 python bpe_text_to_ids_tf_examples.py --bert_vocab_path="$VOCAB_PATH" \
     --input_data_path="$OUTPUT_PATH_TXT_BPE" --force="$FORCE" \
-    --output_path="$OUTPUT_PATH_TF_EXAMPLES" --max_num_tokens="$NUM_TOKENS"
+    --output_path="$OUTPUT_PATH_TF_EXAMPLES"
 
 # Train the filter. Right now, runs over the labeled flattened dataset, as
 # a proof of concept (as we don't have the unlabeled data).
@@ -128,4 +119,4 @@ python filter_inference.py --filter_type=no \
         --vocab_path="$VOCAB_PATH" \
         --model_ckpt_path="$MODEL_SAVE_PATH" \
         --num_output_shards=10 \
-        --max_num_batches=50
+        # --max_num_batches=50 # WARNS

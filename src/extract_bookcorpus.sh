@@ -24,28 +24,7 @@ BOOKCORPUS_PATH="$SLURM_TMPDIR/bookcorpus"      # bookcorpus code repository
 DATA_DIR="/network/tmp1/chenant/class/comp-550" # directory for data storage
 BOOKS_DIR="$DATA_DIR/bookcorpus/raw_books"      # path to the output books
 
-
-# Load module
-module load python/3.7
-python -m pip intall tensorflow-gpu
-
-# Create temporary virtual environment and activate
-rm -rfv "$VENV_PATH"
-if [ ! -d "$VENV_PATH" ] ; then
-  virtualenv $VENV_PATH
-fi
-source $VENV_PATH/bin/activate || true
-
-
-# Clone the bookcorpus repository
-if [ ! -d "$BOOKCORPUS_PATH" ] ; then
-  mkdir $BOOKCORPUS_PATH
-fi
-git clone https://github.com/soskek/bookcorpus $BOOKCORPUS_PATH
-
-
-# Install requirements for bookcorpus
-python -m pip install -r $BOOKCORPUS_PATH/requirements.txt
+# source ./venv_setup.sh
 
 # Get the list of book json (skipping because they already provide a list)
 # python -u $BOOKCORPUS_PATH/download_list.py > \
@@ -56,7 +35,6 @@ python -u $BOOKCORPUS_PATH/download_files.py \
           --list $BOOKCORPUS_PATH/url_list.jsonl \
           --out $BOOKCORPUS_PATH/out_txts \
           --trash-bad-count \
-
 
 # Copy the books to an appropriate directory (uncomment below to copy)
 # cp -r $BOOKCORPUS_PATH/out_txts $BOOKS_DIR

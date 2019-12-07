@@ -96,7 +96,6 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
     :return: None
     """
 
-
     if not args.mode in VALID_MODES:
         raise ValueError(f"The argument 'mode' needs to be one of "
                          f"{VALID_MODES}, got {args.mode}.")
@@ -119,7 +118,7 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
 
     # Get list of input file paths
     in_list = sorted(glob.glob(os.path.join(args.input_dir, "*.txt")))
-    if hasattr(args, "max_number_of_books"):
+    if args.max_number_of_books:
         in_list = in_list[:args.max_number_of_books]
 
         logging.warning(f"{colorama.Fore.RED}>>> USING A MAX NUMBER OF BOOKS <<<"
@@ -164,6 +163,9 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
             # break spacy's sentence tokenizer.
             logging.debug("Loading a file >")
             file_text = in_file.read().strip()
+            if not file_text:
+                continue
+
             logging.debug("< Done loading a file")
 
             for i in range(len(file_text) // CHUNK_MAX_LEN):
@@ -226,7 +228,6 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
                         if args.mode == "bert-native":
                             ids = bert_tok_ids
 
-
                     if args.mode == "check":
                         # In the "check" mode, we test that both the
                         # bert native tokenizer and blingfire return 
@@ -262,13 +263,13 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
                     curr_ids.append(ids)
 
                 logging.debug(f"< Done tokenizing sentences. It took "
-                            f"{time.time() - bpe_tok_time_start} seconds.")
+                              f"{time.time() - bpe_tok_time_start} seconds.")
                 
                 concat_time_start = time.time()
                 logging.debug("Concatenating the ids. >")
 
                 if not curr_ids:
-                    logging.warn(">> Warning: empty cur_file_ids")
+                    logging.warning(">> Warning: empty cur_file_ids")
 
                 id_mat = np.array(list(curr_ids), dtype=np.int32)
 
@@ -290,7 +291,8 @@ def generate_textid_corpus(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     # Parsing input arguments
     parser = argparse.ArgumentParser(description="Clean up set of plaintext books")
-    parser.add_argument("--max_number_of_books", "-mnob", type=int,)
+    parser.add_argument("--max_number_of_books", "-mnob", type=int,
+                        default=None)
     parser.add_argument("--input-dir", type=str, required=True,
                         help="path to input directory to read from (default: cwd)")
     parser.add_argument("--output-dir", type=str, required=True,

@@ -15,7 +15,8 @@ except ImportError:
 
 
 def main(bert_vocab_path: utils.PathStr, input_data_path: utils.PathStr,
-         output_path: utils.PathStr, max_num_tokens: int, force: bool = False):
+         output_path: utils.PathStr, max_num_tokens: int = 128,
+         force: bool = False):
     """ Converts files in the textual BPE token format to the  tf.Example format.
 
     This converts files with the text tokens to binary blobs with the ids of 

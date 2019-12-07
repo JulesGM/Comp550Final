@@ -21,31 +21,12 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 DATA_DIR="/network/home/gagnonju/shared/data"   # general data directory
 ID_BOOKS_DIR="$DATA_DIR/cleaned-id-books"  # downloaded books directory
 LOC_BOOKS="$SLURM_TMPDIR/id-books"                # local books directory (to copy above to)
-VENV_PATH="$SLURM_TMPDIR/cur_venv"                # temp virtual env directory
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
 VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
 VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"              # Path to the temp local BERT vocabulary file
 TF_OUT_DIR="$SLURM_TMPDIR/tf_examples_dir"        # temp output directory storing the tf example files
 
-
-echo -e "\n###########################################################"
-echo "# Activating VENV & installing requirements"
-echo "###########################################################"
-module load python/3.7
-
-if [ ! -d "$VENV_PATH" ] ; then
- virtualenv "$VENV_PATH"
-fi
-source "$VENV_PATH/bin/activate" || true
-python -m pip install numpy scipy pandas tqdm spacy pygments \
-  colored_traceback tensorflow-gpu nltk -q
-
-# Get the bookcorpus repository and its requirements
-if [ ! -d "$BOOKCORPUS_REPO" ] ; then
-  mkdir "$BOOKCORPUS_REPO"
-  git clone https://github.com/soskek/bookcorpus.git "$BOOKCORPUS_REPO"
-fi
-python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt" -q
+# source ./venv_setup.sh
 
 echo -e "\n###########################################################"
 echo "# Copying files"
@@ -70,7 +51,7 @@ if [ ! -d "$TF_OUT_DIR" ] ; then
 fi
 
 echo -e "\n###########################################################"
-echo "# Running build_ex_from-id.py"
+echo "# Running build_ex_from_id.py"
 echo "###########################################################"
 # Generate the tf examples
 python -u build_ex_from_id.py --input-dir "$LOC_BOOKS" \
