@@ -191,11 +191,11 @@ def create_masked_lm_predictions(ids: List[int], masked_lm_prob: float,
 
 class BERTExampleWriter(TfRecordWriter):
     def __init__(self, output_files: List[utils.PathStr],
-                 vocab_path: utils.PathStr, max_num_tokens: int):
+                 vocab_path: utils.PathStr, max_num_tokens: int,):
         """Multiple output_files for if we want to save in multiple files.
         """
         super().__init__(output_files=output_files, vocab_path=vocab_path,
-                         max_num_tokens=max_num_tokens)
+                         max_num_tokens=max_num_tokens,)
 
     T = TypeVar("T")
     @staticmethod
@@ -379,7 +379,9 @@ def tf_example_uniform_sampler(paths: List[utils.PathStr],
 
 def read_from_tf_example(paths: List[utils.PathStr], sample_len: int,
                          num_epochs: int, num_map_threads: int,
-                         parser_fn: Callable, shuffle_buffer_size: int = 1
+                         parser_fn: Callable,
+                         sharding_idx: int, sharding_quantity: int,
+                         shuffle_buffer_size: int = 1,
                          ) -> tf.data.Dataset:
     """Creates a Tensorflow parallel dataset reader for the TfExamples.
   Also could support sharding (meaning, separating the dataset over shards), as
@@ -394,6 +396,8 @@ def read_from_tf_example(paths: List[utils.PathStr], sample_len: int,
     parser_fn: Function to extract a tf.Feature from a tf.Example entry
     shuffle_buffer_size: the data is loaded this number of samples at the time,
                          and these "shuffle batches" have their sample shuffled.
+    sharding_idx:
+    sharding_quantity:
   Returns:
     A tf.data.Dataset object that returns the samples one at the time.
   """
@@ -407,6 +411,8 @@ def read_from_tf_example(paths: List[utils.PathStr], sample_len: int,
     paths = [str(path) for path in paths]
 
     d = tf.data.Dataset.from_tensor_slices(paths)
+    if sharding_quantity and sharding_quantity > 1:
+        d = d.shard(sharding_quantity, sharding_idx)
     d = d.repeat(num_epochs)
     d = d.interleave(tf.data.TFRecordDataset,
                      num_parallel_calls=tf.data.experimental.AUTOTUNE)

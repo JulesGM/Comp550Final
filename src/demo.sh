@@ -28,31 +28,19 @@ FORCE="True" # "True" or "False"
 source ./venv_setup.sh
 
 echo -e "\n###################"
-echo -e "###################"
-echo -e "###################"
 echo "# clean_bookcorpus.sh:"
 echo "###################"
-echo -e "###################"
-echo -e "###################"
 source clean_bookcorpus.sh
 
 echo -e "\n###################"
-echo -e "###################"
-echo -e "###################"
 echo "# build_examples_from-id.sh:"
 echo "###################"
-echo -e "###################"
-echo -e "###################"
 source ./build_examples_from_id.sh
 
+
 echo -e "\n###################"
-echo -e "###################"
-echo -e "###################"
 echo "# Rest of demo.sh:"
 echo "###################"
-echo -e "###################"
-echo -e "###################"
-
 # Minor compatibility adjustment for the BERT code.
 find "$BERT_LIB_PATH" -iname "*.py" -exec sed -i 's/tf.gfile./tf.io.gfile./g' "{}"  \;
 

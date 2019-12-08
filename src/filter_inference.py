@@ -13,6 +13,8 @@ import json
 import logging
 import pathlib
 import pickle
+import signal
+import threading
 
 # Third-party imports
 import numpy as np
@@ -162,8 +164,14 @@ FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,
                   # etc.
                   )
 
+
 def main(args: argparse.Namespace):
     utils.check_type_one_of(args.max_seq_len, [int])
+
+    if args.sharding_quantity and args.sharding_quantity > 1:
+        if args.sharding_idx is None:
+            raise ValueError("Got a sharding_quantity > 1 but sharding_idx "
+                             "is None.")
 
     # Log the command-line arguments in a pretty way.
     utils.log_args(args, logging.DEBUG)
@@ -196,17 +204,34 @@ def main(args: argparse.Namespace):
     reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
         shuffle_buffer_size=args.shuffle_buffer_size,
-        num_map_threads=args.num_map_threads, 
+        num_map_threads=args.num_map_threads,
+        sharding_idx=args.sharding_idx,
+        sharding_quantity=args.sharding_quantity,
         num_epochs=1, parser_fn=tf_example_utils.build_filter_input_parser_fn(
             args.max_seq_len))
 
-    with tf_example_utils.BERTExampleWriter(output_files=[
-                args.output_data_path/f"filtered_{i}.tfrecord"
-                for i in range(args.num_output_shards)],
-            vocab_path=args.vocab_path, max_num_tokens=args.max_seq_len
+    if args.sharding_quantity:
+        name_prefix = f"{args.sharding_index}_"
+    else:
+        name_prefix = ""
+    output_files = [args.output_data_path/f"{name_prefix}filtered_{i}.tfrecord"
+                    for i in range(args.num_output_shards)]
+
+    signaled_to_stop = False
+    def signal_catcher(signalNumber, frame):
+        nonlocal signaled_to_stop
+        signaled_to_stop = True
+        open("we_did_it", "w").close()
+
+    signal.signal(signal.SIGTERM, signal_catcher)
+
+    with tf_example_utils.BERTExampleWriter(output_files=output_files,
+            vocab_path=args.vocab_path, max_num_tokens=args.max_seq_len,
         ) as writer:
 
-        for i, batch in enumerate(reader.batch(args.batch_size)):        
+        for i, batch in enumerate(reader.batch(args.batch_size)):
+            if signaled_to_stop:
+                break
             # Get the mask from the filter object.
             if args.max_num_batches and i > args.max_num_batches:
                 break
@@ -280,6 +305,10 @@ if __name__ == "__main__":
     parser.add_argument("--max_num_batches", "-mnb", type=int, default=None,
                         help="If you don't want a max, just don't "
                              "use the argument.")
+
+    parser.add_argument("--sharding_quantity", type=int, default=0)
+    parser.add_argument("--sharding_idx", type=int, default=None)
+
     args = parser.parse_args()
 
     # Logging
