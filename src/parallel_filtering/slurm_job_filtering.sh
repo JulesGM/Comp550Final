@@ -45,6 +45,12 @@ SHARD_QUANTITY=$shard_quant       # passed from job submission script
 
 
 # ==
+# Set-up the environment
+source ./venv_setup.sh
+
+
+
+# ==
 # Download an example BERT vocab if it doesn't exist.
 if [[ "$FORCE" == "True" ]] || [ ! -f "$VOCAB_PATH" ] ; then
     echo -e "\n####################################################"

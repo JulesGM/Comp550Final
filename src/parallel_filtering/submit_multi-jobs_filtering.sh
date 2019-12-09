@@ -22,10 +22,10 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # Paths
 
 # Input directory containing unfiltered, unmasked tf examples CONFIRM THIS
-IN_DIR_PATH="??? TODO write this depending on output of demo script"
+IN_DIR_PATH="/network/home/gagnonju/shared/data/tf_examples_dir"
 
 # Output directory to deposit the filtered tf examples
-out_dir_name="`date +"%Y-%m-%d"`_filtered_out"
+out_dir_name="`date +"%Y-%m-%d"`_filtered-out_nofilter"
 OUT_DIR_PATH="/network/tmp1/chenant/sharing/comp-550/filter_models/inference/$out_dir_name"
 
 # Path to the trained model pkl and confirguration
