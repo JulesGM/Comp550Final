@@ -22,6 +22,8 @@ UNLABELED_DIR=$in_dir           # passed from job submission script
 # Path to the output directory (filtered tf-examples, directory to write to)
 FILTERED_OUTPUT_PATH=$out_dir   # passed from job submissions script
 
+# Type of model to run
+MODEL_TYPE=$mod_type            # passed from job submission script
 # Where the trained model .pkl file is saved (read from)
 MODEL_SAVE_PATH_LOC=$mod_pkl    # passed from job submission script
 # Where the model configuration is (read from)
@@ -61,7 +63,7 @@ for ((i=0; i<NUM_SHARDS; i++)); do
   CUR_SHARD_IDX=$(($i + $START_SHARD_IDX))
 
   python $PY_SCRIPT \
-        --filter_type=no \
+        --filter_type=$MODEL_TYPE \
         --batch_size=10 \
         -v=0 \
         --num_map_threads=1 \
