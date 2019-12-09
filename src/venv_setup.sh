@@ -10,7 +10,7 @@ echo "PYTHON EXECUTABLE: $(which python)"
 echo -e "\n###########################################################"
 echo "# Installing python"
 echo "###########################################################"
-module load python/3.7/tensorflow-gpu/2.0.0
+module load python/3.7
 
 echo -e "\n###########################################################"
 echo "# Building and activating the VENV"
@@ -41,5 +41,6 @@ echo "# Installing cuda, cudnn and tensorflow-gpu"
 echo "###########################################################"
 module load cuda/10.0
 module load cuda/10.0/cudnn/7.3
+python -m pip install tensorflow-gpu>=2.0.0
 
 
