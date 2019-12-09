@@ -14,16 +14,14 @@ import logging
 import pathlib
 import pickle
 import signal
-import threading
 
 # Third-party imports
 import numpy as np
 from sklearn import naive_bayes
-from sklearn import preprocessing
 import tensorflow as tf
 import tqdm
 
-# Our imports
+# Imports from our code
 import tf_example_utils
 import utils
 
@@ -60,10 +58,10 @@ class FilterInferenceBase:
     def filter(self, samples: tf.Tensor) -> np.ndarray:
         """ Returns a Numpy array with booleans, telling which samples to use.
         """
-
         # A pure abstract function is a function that can't be called by itself,
         # it needs to be derived by the derived classes
         raise NotImplementedError("Pure Abstract Function")
+
 
 class NoFilterFilter(FilterInferenceBase):
     def __init__(self, model_config_path: utils.PathStr,
@@ -149,7 +147,7 @@ class NBCFilter(FilterInferenceBase):
 
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
-        print(prediction_scores)
+
         return prediction_scores > self._config["filter_threshold"]
 
 # Map mapping the names of the different filter types to their class.
@@ -161,7 +159,6 @@ FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,
                   no_filter=NoFilterFilter,
                   no=NoFilterFilter,
                   # hand_written_rules=HandWrittenRulesFilter,
-                  # etc.
                   )
 
 
@@ -190,7 +187,6 @@ def main(args: argparse.Namespace):
     ###########################################################################
     # The format of the output data may change.
     # We are expecting small arrays of ints in numpy's npz format currently.
-
     # The stack thing is not ideal in parallel; it should be easy to come up 
     # with something else though.
 
@@ -200,7 +196,6 @@ def main(args: argparse.Namespace):
     with open(args.vocab_path) as fin:
         idx_to_word = [x.strip() for x in fin.read().strip().split("\n")]
     word_to_idx = {w: i for i, w in enumerate(idx_to_word)}
-
     reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
         shuffle_buffer_size=args.shuffle_buffer_size,
@@ -224,7 +219,6 @@ def main(args: argparse.Namespace):
         open("we_did_it", "w").close()
 
     signal.signal(signal.SIGTERM, signal_catcher)
-
     with tf_example_utils.BERTExampleWriter(output_files=output_files,
             vocab_path=args.vocab_path, max_num_tokens=args.max_seq_len,
         ) as writer:

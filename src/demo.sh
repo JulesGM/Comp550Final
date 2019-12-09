@@ -23,7 +23,7 @@ MODEL_CONFIG_PATH_INFERENCE="../configs/nbc_inference.json"
 MODEL_CONFIG_PATH_TRAINING="../configs/nbc_training.json"
 FILTERED_OUTPUT_PATH="$DATA_DIR/final_output"
 NUM_TOKENS=128
-FORCE="True" # "True" or "False"
+FORCE="True"
 
 source ./venv_setup.sh
 
@@ -36,7 +36,6 @@ echo -e "\n###################"
 echo "# build_examples_from-id.sh:"
 echo "###################"
 source ./build_examples_from_id.sh
-
 
 echo -e "\n###################"
 echo "# Rest of demo.sh:"
@@ -88,23 +87,22 @@ python filter_training.py --glob_pattern_labeled_data="$OUTPUT_PATH_TF_EXAMPLES"
           --batch_size=1024 \
          --num_threads_reader=4
 
-# Run the filter. Right now, runs over the labeled flattened dataset, as
-# a proof of concept (as we don't have the unlabeled data).
-echo -e "\n####################################################"
-echo "# Filter Inference"
-echo "####################################################"
-if [ ! -d "$FILTERED_OUTPUT_PATH" ] ; then
-  mkdir "$FILTERED_OUTPUT_PATH"
-fi
-
-python filter_inference.py --filter_type=no \
-        --batch_size=10 -v=0 \
-        --num_map_threads=4 \
-        --shuffle_buffer_size=1000 \
-        --output_data_path="$FILTERED_OUTPUT_PATH" \
-        --input_data_path="$UNLABELED_DIR" \
-        --json_config_path="$MODEL_CONFIG_PATH_INFERENCE" \
-        --vocab_path="$VOCAB_PATH" \
-        --model_ckpt_path="$MODEL_SAVE_PATH" \
-        --num_output_shards=10 \
-        # --max_num_batches=50 # WARNS
+## Run the filter. Right now, runs over the labeled flattened dataset, as
+## a proof of concept (as we don't have the unlabeled data).
+#echo -e "\n####################################################"
+#echo "# Filter Inference"
+#echo "####################################################"
+#if [ ! -d "$FILTERED_OUTPUT_PATH" ] ; then
+#  mkdir "$FILTERED_OUTPUT_PATH"
+#fi
+#
+#python filter_inference.py --filter_type=no \
+#        --batch_size=10 -v=0 \
+#        --num_map_threads=4 \
+#        --shuffle_buffer_size=1000 \
+#        --output_data_path="$FILTERED_OUTPUT_PATH" \
+#        --input_data_path="$UNLABELED_DIR" \
+#        --json_config_path="$MODEL_CONFIG_PATH_INFERENCE" \
+#        --vocab_path="$VOCAB_PATH" \
+#        --model_ckpt_path="$MODEL_SAVE_PATH" \
+#        # --max_num_batches=50 # WARNS
