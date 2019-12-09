@@ -22,24 +22,28 @@ echo -e "\n###############################################################"
 echo "# Load tensorflow gpu"
 echo "###############################################################"
 # Load python
+module purge
+module refresh
 module load python/3.7
+module load cuda/10.0
+module load cuda/10.0/cudnn/7.6
+module load python/3.7/tensorflow-gpu/1.15.0rc2
 
 echo -e "\n###############################################################"
 echo "# Activate VENV"
 echo "###############################################################"
-#rm -rf "$VENV_PATH" || true
+rm -rf "$VENV_PATH" || true
 # Set up and activate temporary virtualenv
 if [ ! -d "$VENV_PATH" ] ; then
   virtualenv "$VENV_PATH"
 fi
 source "$VENV_PATH/bin/activate"
+python -m pip install tqdm
 
 echo -e "\n###############################################################"
 echo "# Load CUDA and CUDNN "
 echo "###############################################################"
-module load cuda/10.0
-module load cuda/10.0/cudnn/7.3
-python -m pip install tensorflow-gpu==1.15.0rc2 tqdm -q
+
 
 echo -e "\n###############################################################"
 echo "# convert_socialiqa.py"
@@ -60,6 +64,8 @@ if [ ! -f "$BERT_DIR/$BERT_FILE_NAME.zip" ] ; then
   mv "$BERT_DIR/$BERT_FILE_NAME"/* "$BERT_DIR"
 fi
 
+
+rm -rf "$SOCIALIQA/checkpoints"
 if [ ! -d "$SOCIALIQA/checkpoints" ] ; then
   mkdir "$SOCIALIQA/checkpoints"
 fi

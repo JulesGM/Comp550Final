@@ -3,7 +3,7 @@ set -u
 
 VENV_PATH="$SLURM_TMPDIR/cur_venv"
 COMMONSENSEQA="$SLURM_TMPDIR/commonsenseqa"
-BERT_URL="https://storage.googleapis.com/bert_models/2018_10_18/cased_L-12_H-768_A-12.zip"
+#BERT_URL="https://storage.googleapis.com/bert_models/2018_10_18/cased_L-12_H-768_A-12.zip"
 BERT_FILE_NAME=$(python3 -c "print(\"$BERT_URL\".split(\"/\")[-1].split(\".\")[0])")
 echo $BERT_FILE_NAME
 BERT_DIR="$SLURM_TMPDIR/bert_model"
@@ -22,24 +22,23 @@ echo -e "\n###############################################################"
 echo "# Load tensorflow gpu"
 echo "###############################################################"
 # Load python
-module load python/3.7
+module purge
+module refresh
+module load cuda/10.0
+module load cuda/10.0/cudnn/7.6
+module load python/3.7/tensorflow-gpu/1.15.0rc2
 
 echo -e "\n###############################################################"
 echo "# Activate VENV"
 echo "###############################################################"
 #rm -rf "$VENV_PATH" || true
 # Set up and activate temporary virtualenv
+rm -rf "$VENV_PATH" || true
 if [ ! -d "$VENV_PATH" ] ; then
   virtualenv "$VENV_PATH"
 fi
 source "$VENV_PATH/bin/activate"
-
-echo -e "\n###############################################################"
-echo "# Load CUDA and CUDNN "
-echo "###############################################################"
-module load cuda/10.0
-module load cuda/10.0/cudnn/7.3
-python -m pip install tensorflow-gpu==1.15.0rc2 tqdm -q
+python -m pip install tqdm
 
 echo -e "\n###############################################################"
 echo "# Maybe Download the BERT model"
@@ -54,6 +53,7 @@ if [ ! -f "$BERT_DIR/$BERT_FILE_NAME.zip" ] ; then
   mv "$BERT_DIR/$BERT_FILE_NAME"/* "$BERT_DIR"
 fi
 
+rm -rf "$COMMONSENSEQA/checkpoints"
 if [ ! -d "$COMMONSENSEQA/checkpoints" ] ; then
   mkdir "$COMMONSENSEQA/checkpoints"
 fi
