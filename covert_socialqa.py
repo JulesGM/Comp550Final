@@ -10,7 +10,7 @@ Original file is located at
 import os
 import json
 
-path_to_socialqa = pwd
+path_to_socialqa = os.getcwd()
 
 with open(os.path.join(path_to_socialqa,"socialIQa_v1.4_trn.jsonl"), 'r') as handle:
     train_socialqa = [json.loads(line) for line in handle]
@@ -30,7 +30,7 @@ for index,social in enumerate(train_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= "train" + str(index)
+  test_new_social["id"]= "{}".format(index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -63,7 +63,9 @@ for index,social in enumerate(train_socialqa):
 
 
 with open(os.path.join(path_to_socialqa,"socialIQa_train.jsonl"), 'w') as f:
-  json.dump(train_socialqa, f)
+    for dicti in train_socialqa:
+        json.dump(dicti, f)
+        f.write("\n")
 
 
 ############################for dev
@@ -75,7 +77,7 @@ for index,social in enumerate(dev_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= "dev" + str(index)
+  test_new_social["id"]="{}".format( 1e5 + index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -107,7 +109,9 @@ for index,social in enumerate(dev_socialqa):
 
 
 with open(os.path.join(path_to_socialqa,"socialIQa_dev.jsonl"), 'w') as f:
-  json.dump(dev_socialqa, f)
+    for dicti in dev_socialqa:
+        json.dump(dicti, f)
+        f.write("\n")
 
 #################################for test
 commonsense_template = {"answerKey": "A", "id": "c10ebb0e1b588d6a534edb297d2f4443", "question": {"question_concept": "chef", "choices": [{"label": "A", "text": "cook dinner"}, {"label": "B", "text": "study french cooking"}, {"label": "C", "text": "taste sauce"}, {"label": "D", "text": "prepare food"}, {"label": "E", "text": "thin sauce"}], "stem": "What does a chef do when working in the evening?"}}
@@ -118,7 +122,7 @@ for index,social in enumerate(test_socialqa):
 
   test_new_social = {}
   test_new_social.update(commonsense_template)
-  test_new_social["id"]= "test" + str(index)
+  test_new_social["id"]= "{}".format(1e5 + index)
   add_context = {"context" : social["context"]}
   test_new_social.update(add_context)
   test_new_social["answerKey"] = social["correct"]
@@ -149,8 +153,8 @@ for index,social in enumerate(test_socialqa):
 
 
 with open(os.path.join(path_to_socialqa,"socialIQa_test.jsonl"), 'w') as f:
-  json.dump(test_socialqa, f)
+    for dicti in test_socialqa:
+         json.dump(dicti, f)
+         f.write("\n")
 
-from google.colab import drive
-drive.mount('/content/gdrive')
 
