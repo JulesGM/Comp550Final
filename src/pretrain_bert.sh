@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=main
+#SBATCH --partition=long
 #SBATCH --gres=gpu:volta:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=32G
 #SBATCH --time=24:00:00
-#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/output-pretrain.txt
-#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/error-pretrain.txt
+#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-8_out/output-pretrain.txt
+#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-8_out/error-pretrain.txt
 
 # =============================================================================
 # Pre-train BERT given a directory of tensorflow example (.tfrecord) files.
@@ -19,7 +19,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # Path variables
 PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/final_output" # location of pretraining data dir
 PRETRAINING_PY="./src/bert/run_pretraining.py"    # location of the run_pretraining file
-PRETRAIN_OUT_DIR="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/"   # location to put the pre-trained BERT
+PRETRAIN_OUT_DIR="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-8_out/"   # location to put the pre-trained BERT
 PRETRAIN_OUT_LOC="$PRETRAIN_OUT_DIR"      # local directory for pretrained BERT (e.g. $SLURM_TMPDIR/model_out")
 
 
