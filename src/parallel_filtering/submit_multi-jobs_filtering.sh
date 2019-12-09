@@ -45,6 +45,7 @@ SHARD_PER_JOB=4   # number of shards per job (usually 4 for 4-core node)
 
 PARTITION="long"  # long (low priority0 so we can submit multiple jobs
 MEM_PER_JOB="16G"
+GRES_PER_JOB="gpu:10gb:1"
 
 TIME_PER_JOB="1:00:00" # time allowed per job
 
@@ -85,6 +86,7 @@ for ((i=1;i<=NUM_JOBS;i++)); do
   sbatch --cpus-per-task=$SHARD_PER_JOB \
          --partition=$PARTITION \
          --mem=$MEM_PER_JOB \
+         --gres=$GRES_PER_JOB \
          --time=$TIME_PER_JOB \
          --output=$cur_out_file \
          --error=$cur_error_file \
