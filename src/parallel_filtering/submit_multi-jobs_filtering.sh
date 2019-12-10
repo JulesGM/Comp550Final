@@ -27,7 +27,7 @@ IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
 MOD_TYPE=nbc #"lstm" #nbc, lstm, no
 
 # Output directory to deposit the filtered tf examples
-out_dir_name="`date +"%Y-%m-%d"`_filtered-out_$MOD_TYPE"
+out_dir_name="`date + "%Y-%m-%d"`_filtered-out_$MOD_TYPE"
 
 if [[ "$USER" == "chenant" ]] ; then
   echo "CHENANT MODE"
@@ -56,9 +56,9 @@ SHARD_PER_JOB=4   # number of shards per job (usually 4 for 4-core node)
 
 PARTITION="long"  # long (low priority0 so we can submit multiple jobs
 MEM_PER_JOB="16G"
-GRES_PER_JOB="gpu:pascal:1"
+GRES_PER_JOB="gpu:1"
 
-TIME_PER_JOB="1:00:00" # time allowed per job
+TIME_PER_JOB="48:00:00" # time allowed per job
 
 
 
