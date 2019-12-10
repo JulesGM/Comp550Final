@@ -11,13 +11,10 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 
 # Path variables
-#PRETRAIN_DATA_DIR=$data_dir  # location of pretraining data dir
-PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/parallel_jobs_logs/2019-12-09_filtered-out_nofilter" # debug
+PRETRAIN_DATA_DIR=$data_dir  # location of pretraining data dir
 PRETRAINING_PY="./bert/run_pretraining.py"    # location of the run_pretraining file
-#PRETRAIN_OUT_DIR=$out_dir    # location to put pre-trained BERT
-PRETRAIN_OUT_DIR="$SLURM_TMPDIR/model_out" # debug
+PRETRAIN_OUT_DIR=$out_dir    # location to put pre-trained BERT
 PRETRAIN_OUT_LOC="$PRETRAIN_OUT_DIR"      # local directory for pretrained BERT (e.g. $SLURM_TMPDIR/model_out")
-
 
 
 # BERT-trainin variables
