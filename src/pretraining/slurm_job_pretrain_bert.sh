@@ -66,7 +66,7 @@ if [ ! -d "$BERT_BASE_DIR" ] ; then
   unzip "$SLURM_TMPDIR/bertcased.zip" -d "$SLURM_TMPDIR/bertcased-unzipped"
 
   # Copy just the cased model directory (kind of hacky)
-  cp -r "$SLURM_TMPDIR/bertcased-unzipped/cased_L-12_H-768_A-12" $BERT_BASE_DIR
+  cp -r "$SLURM_TMPDIR/bertcased-unzipped/cased_L-12_H-768_A-12" "$BERT_BASE_DIR"
 fi
 
 
@@ -76,7 +76,7 @@ echo -e "\n=========="
 echo "Setting up pretraining data: $(date)"
 echo -e "==========\n"
 if [ ! -d "$TRAIN_DATA_LOC" ] ; then
-  cp -r $PRETRAIN_DATA_DIR $TRAIN_DATA_LOC
+  cp -r "$PRETRAIN_DATA_DIR" "$TRAIN_DATA_LOC"
 fi
 
 
@@ -96,7 +96,7 @@ echo -e "==========\n"
 
 python -u "$PRETRAINING_PY" \
           --input_file="$TRAIN_DATA_LOC/*.tfrecord" \
-          --output_dir=$PRETRAIN_OUT_LOC \
+          --output_dir="$PRETRAIN_OUT_LOC" \
           --do_train=True \
           --do_eval=True \
           --bert_config_file="$BERT_BASE_DIR/bert_config.json" \
