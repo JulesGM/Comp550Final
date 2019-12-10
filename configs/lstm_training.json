@@ -1,0 +1,6 @@
+{"vocab_size": 28996,
+  "dimension": 16,
+  "dropout": 0.5,
+  "max_len": 128,
+  "num_layers": 2
+}

@@ -13,6 +13,7 @@ import itertools
 import pathlib
 import pickle
 from typing import Set
+import random
 
 # The following import is a conditional import.
 try:
@@ -24,13 +25,13 @@ import numpy as np
 from sklearn import naive_bayes
 import tensorflow as tf
 import tqdm
-from typing import List
+from typing import Any, Dict, List
 
 import tf_example_utils
 import utils
+import attention
 
 NUMBER_TO_SAMPLE = 16712
-
 
 class FilterAbstractTrainer:
     """Base class of all Filter Trainer instances.
@@ -40,7 +41,8 @@ class FilterAbstractTrainer:
     """
 
     def __init__(self, config_path: utils.PathStr,
-                 expected_json_keys: Set[str]
+                 expected_json_keys: Set[str],
+                 vocab_path: utils.PathStr
                  # We require a set to check equality.
                  ):
         # Open the file and load the configuration file.
@@ -67,6 +69,193 @@ class FilterAbstractTrainer:
         """
         raise NotImplementedError("Pure Abstract Method")
 
+#
+# class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
+#
+#     expected_json_keys = {"vocab_size", "num_heads", "dimension",
+#                           "dropout", "max_len", "fc_multiplier", "num_layers"}
+#
+#     def __init__(self, config_path: utils.PathStr):
+#         super().__init__(config_path, self.expected_json_keys)
+#
+#         num_heads: int = self._config["num_heads"]
+#         dimension: int = self._config["dimension"]
+#         vocab_size: int = self._config["vocab_size"]
+#         dropout: float = self._config["dropout"]
+#         max_len: int = self._config["max_len"]
+#         num_layers: int = self._config["num_layers"]
+#         fc_multiplier: int = self._config["fc_multiplier"]
+#
+#         token_ids = tf.keras.Input(shape=(None,), dtype='int32')
+#         position_ids = tf.keras.Input(shape=(None,), dtype='int32')
+#
+#         # Embedding lookup.
+#         token_embedding = tf.keras.layers.Embedding(vocab_size, dimension)
+#         positon_embedding = tf.keras.layers.Embedding(max_len, dimension)
+#
+#         # Query embeddings of shape [batch_size, Tq, dimension].
+#         x = token_embedding(token_ids) + positon_embedding(position_ids)
+#         for i in range(num_layers):
+#             print(f"##### {i}")
+#             att = attention.MultiHeadSelfAttention(num_heads=num_heads,
+#                                                    use_masking=False,
+#                                                    dropout=dropout)(x)
+#             x = tf.keras.layers.LayerNormalization()(att + x)
+#             fc_in = tf.keras.layers.Conv1D(dimension * fc_multiplier, 1,
+#                                            activation="relu")(x)
+#             fc_out = tf.keras.layers.Conv1D(dimension, 1)(fc_in)
+#             x = tf.keras.layers.LayerNormalization()(fc_out + x)
+#
+#         x = tf.keras.layers.GlobalAveragePooling1D()(x)
+#         x = tf.keras.layers.Dense(2, activation="softmax")(x)
+#
+#         self._model = tf.keras.Model(inputs=(token_ids, position_ids),
+#                                      outputs=x)
+#
+#     def train(self, data_from_labeled_set: tf.data.Dataset,
+#               data_from_unlabeled_set: List[tf.Tensor],
+#               batch_size: int):
+#         data_from_labeled_set = list(data_from_labeled_set)
+#         data_from_unlabeled_set = list(data_from_unlabeled_set)
+#
+#         y = np.concatenate([np.ones(dtype=int,
+#                                     shape=[len(data_from_labeled_set)]),
+#                             2 * np.ones(dtype=int,
+#                                         shape=[len(data_from_unlabeled_set)])])
+#         x_ids = itertools.chain(data_from_labeled_set, data_from_unlabeled_set)
+#         x_pos = (np.arange(self._max_len) for _ in itertools.count())
+#
+#         self._model.fit(x=list(zip(x_ids, x_pos)), y=y, batch_size=batch_size,
+#                         shuffle=True, verbose=True)
+#
+#     def save(self, path: utils.PathStr) -> None:
+#         pass
+
+
+class FilterAbstractTrainer:
+    """Base class of all Filter Trainer instances.
+    Requires that the filters can be trained and that their models
+    can be saved. Also requires being able to accept a path in the
+    init to a json configuration file.
+    """
+
+    def __init__(self, config_path: utils.PathStr,
+                 expected_json_keys: Set[str],
+                 vocab_path: utils.PathStr
+                 # We require a set to check equality.
+                 ):
+        # Open the file and load the configuration file.
+        with open(vocab_path) as fin:
+            self._idx_to_w = [w.strip() for w in fin]
+
+        with open(config_path) as fin:
+            self._config = json.load(fin)
+
+        # Verify that the keys of the json file match the expected ones
+        # exactly.
+        if not self._config.keys() == expected_json_keys:
+            raise ValueError(f"Received different keys than expected.\n"
+                             f"Got:      {sorted(expected_json_keys)}\n"
+                             f"Expected: {sorted(self._config)}")
+
+    def train(self, data_from_labeled_set: tf.data.Dataset,
+              data_from_unlabeled_set: List[tf.Tensor],
+              batch_size: int):
+        """Train the model of the smart filter.
+        """
+        raise NotImplementedError("Pure Abstract Method")
+
+    def save(self, path: utils.PathStr):
+        """Save the model of the smart filter.
+        This is so it can then be loaded by the filtering module.
+        """
+        raise NotImplementedError("Pure Abstract Method")
+
+
+class LSTMFilterTrainer(FilterAbstractTrainer):
+    expected_json_keys = {"vocab_size", "dimension", "max_len",
+                          "dropout", "num_layers"}
+
+    def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
+        super().__init__(config_path, self.expected_json_keys, vocab_path)
+        dimension: int = self._config["dimension"]
+        vocab_size: int = self._config["vocab_size"]
+        dropout: float = self._config["dropout"]
+        max_len: int = self._config["max_len"]
+        num_layers: int = self._config["num_layers"]
+
+        token_ids = tf.keras.Input(shape=(None,), dtype='int32')
+
+        # Embedding lookup.
+        token_embedding = tf.keras.layers.Embedding(vocab_size, dimension,
+                                                    mask_zero=True)
+
+        # Query embeddings of shape [batch_size, Tq, dimension].
+        x = token_embedding(token_ids)
+        x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(
+                    dimension),
+                    input_shape=(max_len, dimension))(x)
+        x = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+
+        self._model = tf.keras.Model(inputs=token_ids,
+                                     outputs=x)
+
+    def train(self, data_from_labeled_set: tf.data.Dataset,
+              data_from_unlabeled_set: List[tf.Tensor],
+              batch_size: int):
+
+        data_from_labeled_set = [x["input_ids"] for x in
+                                 tqdm.tqdm(data_from_labeled_set)]
+        data_from_unlabeled_set = [x["input_ids"] for x in
+                                   tqdm.tqdm(data_from_unlabeled_set)]
+        assert len(data_from_labeled_set) == len(data_from_unlabeled_set)
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        print(f"len(data_from_labeled_set): {len(data_from_labeled_set)}")
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        print(f"len(data_from_unlabeled_set): {len(data_from_unlabeled_set)}")
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        y = tf.concat(
+            [tf.zeros(dtype=tf.int64, shape=[len(data_from_labeled_set), 1]),
+             tf.ones(dtype=tf.int64, shape=[len(data_from_unlabeled_set), 1])],
+                      axis=0)
+
+        for _ in range(10):
+            idx = random.choice(range(len(data_from_labeled_set)))
+            print(idx)
+            print(" ".join([self._idx_to_w[i]
+                        for i in data_from_labeled_set[idx] if i != 0]))
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        for _ in range(10):
+            idx = random.choice(range(len(data_from_unlabeled_set)))
+            print(idx)
+            print(" ".join([self._idx_to_w[i]
+                        for i in data_from_unlabeled_set[idx] if i != 0]))
+        x_ids = tf.stack(data_from_labeled_set + data_from_unlabeled_set)
+
+        self._model.compile(optimizer="adam", loss="binary_crossentropy",
+                            metrics=["accuracy"])
+        self._model.fit(x=x_ids, y=y, batch_size=batch_size,
+                        shuffle=True, verbose=True)
+
+    def save(self, path: utils.PathStr) -> None:
+        self._model.save(path)
+
 
 class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """Smart filter using a Naive Bayes Classifier.
@@ -74,16 +263,20 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """
     expected_json_keys = {"hyperparams", "vocab_size"}
 
-    def __init__(self, config_path: utils.PathStr):
-        super().__init__(config_path, self.expected_json_keys)
+    def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
+        super().__init__(config_path, self.expected_json_keys, vocab_path)
 
         # Initialize the model.
         # Here we use `dict.get` to have default values to the hyperparameters.
-        self._model = naive_bayes.MultinomialNB(
-                alpha=self._config["hyperparams"].get("alpha", 1.0),
-                fit_prior=self._config["hyperparams"].get("fit_prior", True),
-                class_prior=self._config["hyperparams"].get("class_prior",
-                                                            None))
+
+        alpha: float = utils.check_type_one_of(
+                self._config["hyperparams"]["alpha"], {float})
+
+        fit_prior: bool = utils.check_type_one_of(
+                self._config["hyperparams"]["fit_prior"], {bool})
+
+        self._model = naive_bayes.MultinomialNB(alpha=alpha,
+                                                fit_prior=fit_prior)
 
     @staticmethod
     def _stack_per_sent(samples_a, samples_b):
@@ -137,22 +330,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         data_from_labeled_set, data_from_unlabeled_set = self._stack_per_sent(
                 data_from_labeled_set, data_from_unlabeled_set)
 
-        # Concatenate the `positive` and the `negative` examples.
-        # print("\nLABELED")
-        # for x in itertools.islice(data_from_labeled_set, 0, 100, 10):
-        #     print(x)
-        # all_zeros = sum([tf.reduce_all(x == 0).numpy()
-        #                  for x in data_from_labeled_set])
-        # print(f"number of all zeros: {all_zeros}/{len(data_from_labeled_set)}")
-        #
-        # print("\nUNLABELED")
-        # for x in itertools.islice(data_from_unlabeled_set, 0, 100, 10):
-        #     print(x)
-        # all_zeros = sum([tf.reduce_all(x == 0).numpy()
-        #                  for x in data_from_unlabeled_set])
-        # print(
-        #     f"number of all zeros: {all_zeros}/{len(data_from_unlabeled_set)}")
-
+        assert len(data_from_labeled_set) == len(data_from_unlabeled_set)
         x = tf.concat([data_from_labeled_set, data_from_unlabeled_set], axis=0)
 
         pre_concat = []
@@ -177,8 +355,10 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         # Build the labels for our dataset.
         y = np.concatenate([np.ones(dtype=int,
                                     shape=[len(data_from_labeled_set)]),
-                            np.zeros(dtype=int,
-                                     shape=[len(data_from_unlabeled_set)])])
+                            2 * np.ones(dtype=int,
+                                        shape=[len(data_from_unlabeled_set)])])
+
+        assert y.shape == (x_bow.shape[0],), y.shape
 
         logging.info("Fitting Model")
         self._model.fit(x_bow.numpy(), y)
@@ -219,6 +399,8 @@ def load_data(paths: List[utils.PathStr], num_map_threads: int, sample_len: int
                                                  num_map_threads=num_map_threads,
                                                  num_epochs=1,
                                                  parser_fn=parser_fn,
+                                                 sharding_quantity=0,
+                                                 sharding_idx=None,
                                                  )
 
 
@@ -228,14 +410,17 @@ def load_data(paths: List[utils.PathStr], num_map_threads: int, sample_len: int
 MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       naive_bayes_classifier=NaiveBayesClassifierFilterTrainer,
                       nbc=NaiveBayesClassifierFilterTrainer,
-                      # ... Some more. Multiple names per entry are encouraged.
+
+
+                      # Not functional: trans=TransformerEncoderFilterTrainer,
+                      lstm=LSTMFilterTrainer
                       )
 
 
 def main(batch_size: int, model_config_path: utils.PathStr,
          model_type: str, trainer_save_path: utils.PathStr,
          glob_pattern_unlabeled_data: utils.PathStr,
-         glob_pattern_labeled_data: utils.PathStr,
+         glob_pattern_labeled_data: utils.PathStr, vocab_path: utils.PathStr,
          num_threads_reader: int, verbosity: int = int(logging.DEBUG),
          sample_len: int = 128):
     """
@@ -309,21 +494,21 @@ def main(batch_size: int, model_config_path: utils.PathStr,
     # Load Data
     logging.debug(str(glob_pattern_labeled_data))
     files_labeled = list(glob.glob(str(glob_pattern_labeled_data)))
-    data_from_labeled_set = load_data(paths=files_labeled,
-        num_map_threads=num_threads_reader, sample_len=sample_len,)
+    data_from_labeled_set = list(load_data(paths=files_labeled,
+        num_map_threads=num_threads_reader, sample_len=sample_len,))
 
     logging.debug(str(glob_pattern_unlabeled_data))
     files_unlabeled = glob.glob(str(glob_pattern_unlabeled_data))
 
-    data_from_unlabeled_set = list(
-            tf_example_utils.tf_example_uniform_sampler(
-                    files_unlabeled, sample_len, num_threads_reader,
-                    tf_example_utils.build_filter_input_parser_fn(sample_len)))
+    data_from_unlabeled_set = list(tf_example_utils.tf_example_uniform_sampler(
+                    paths=files_unlabeled, num_map_threads=num_threads_reader,
+                    number_to_sample=len(data_from_labeled_set),
+                    parser_fn=tf_example_utils.build_filter_input_parser_fn(sample_len)))
 
     # Trainer Action
-    trainer = MODEL_TYPE_MAP[model_type](model_config_path)
+    trainer = MODEL_TYPE_MAP[model_type](model_config_path, vocab_path)
     trainer.train(data_from_labeled_set, data_from_unlabeled_set, batch_size)
-    trainer.save(trainer_save_path)
+    trainer.save(str(trainer_save_path))
     logging.info("Done.")
 
 

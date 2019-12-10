@@ -1,4 +1,4 @@
 {
     "vocab_size": 28996, 
-    "filter_threshold": 0.75
+    "filter_threshold": 0.5
 }

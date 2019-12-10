@@ -45,7 +45,7 @@ SHARD_QUANTITY="$shard_quant"       # passed from job submission script
 
 # ==
 # Set-up the environment
-source ./conda_venv_setup.sh
+source ./parallel_filtering/conda_venv_setup.sh
 
 # ==
 # Download an example BERT vocab if it doesn't exist.
@@ -76,9 +76,9 @@ for ((i=0; i<NUM_SHARDS; i++)); do
         --json_config_path="$MODEL_CONFIG_PATH_INFERENCE" \
         --vocab_path="$VOCAB_PATH" \
         --model_ckpt_path="$MODEL_SAVE_PATH_LOC" \
-        --num_output_shards=$NUM_OUT_FILE_PER_SHARD \
-        --sharding_quantity=$SHARD_QUANTITY \
-        --sharding_idx $CUR_SHARD_IDX \
+        --num_output_shards="$NUM_OUT_FILE_PER_SHARD" \
+        --sharding_quantity="$SHARD_QUANTITY" \
+        --sharding_idx="$CUR_SHARD_IDX" \
         &
     # save the pid
     pids[${i}]=$!

@@ -12,6 +12,7 @@ import numpy as np
 
 PathStr = Union[str, pathlib.Path]
 
+
 def get_filename_from_url(url: str) -> str:
     """ Get the filename from a URL we are likely meant to download a file from. 
     """
@@ -98,8 +99,8 @@ def check_file_exists(path: PathStr):
         raise RuntimeError(f"File failed existence check.\n\tPath:{path}")
 
 
-def check_type_one_of(obj: Any, types: Iterable[Type]
-               ) -> None:
+T = TypeVar("T")
+def check_type_one_of(obj: T, types: Iterable[Type]) -> T:
     """Check if an object is one of a few possible types.
     """ 
     fit_one = any(isinstance(obj, type_) for type_ in types)
@@ -108,6 +109,7 @@ def check_type_one_of(obj: Any, types: Iterable[Type]
                            f"{types}. "
                            f"Got type {type(obj)} instead, which is not "
                            f"an instance of it.")
+    return obj
 
 
 def log_args(args: argparse.Namespace, log_level: int = 

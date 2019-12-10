@@ -24,8 +24,10 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # Input directory containing unfiltered, unmasked tf examples CONFIRM THIS
 IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
 
+MOD_TYPE="lstm" #nbc, lstm, no
+
 # Output directory to deposit the filtered tf examples
-out_dir_name="`date +"%Y-%m-%d"`_filtered-out_nofilter"
+out_dir_name="`date +"%Y-%m-%d"`_filtered-out_$MOD_TYPE"
 
 if [[ "$USER" == "chenant" ]] ; then
   echo "CHENANT MODE"
@@ -39,9 +41,9 @@ else
 fi
 
 # Path to the trained model pkl and confirguration
-MOD_TYPE="no_filter" #nbc, no_filter / no
-MOD_PKL="please_change_me_help.pkl"
-MOD_CONFIG="../configs/nbc_inference.json"
+
+MOD_PKL="/network/home/gagnonju/shared/models/model_${MOD_TYPE}.pkl"
+MOD_CONFIG="../configs/${MOD_TYPE}_inference.json"
 
 # Job file to be submitted in parallel
 SLURM_FILE_PATH="./parallel_filtering/slurm_job_filtering.sh"

@@ -13,7 +13,7 @@ except ImportError:
 import numpy as np
 import tensorflow as tf
 import tqdm
-from typing import TypeVar
+from typing import TypeVar, Optional
 
 import utils
 
@@ -368,8 +368,8 @@ def tf_example_uniform_sampler(paths: List[utils.PathStr],
 
     cache = {}
 
-    logging.info("(Do not believe the following tqdm timer's duration "
-                 "estimation)")
+    logging.info("\nDo not believe the following tqdm timer's duration "
+                 "estimation, caching messes the evaluation.")
     for _ in tqdm.tqdm(range(number_to_sample)):
         path = random.choice(paths)
         if path not in cache:
@@ -384,7 +384,7 @@ def tf_example_uniform_sampler(paths: List[utils.PathStr],
 def read_from_tf_example(paths: List[utils.PathStr], sample_len: int,
                          num_epochs: int, num_map_threads: int,
                          parser_fn: Callable,
-                         sharding_idx: int, sharding_quantity: int,
+                         sharding_idx: Optional[int], sharding_quantity: int,
                          shuffle_buffer_size: int = 1,
                          ) -> tf.data.Dataset:
     """Creates a Tensorflow parallel dataset reader for the TfExamples.

@@ -90,6 +90,50 @@ class NoFilterFilter(FilterInferenceBase):
         return tf.ones(len(samples), tf.dtypes.bool)
 
 
+class LSTMFilter(FilterInferenceBase):
+    expected_json_keys = {"vocab_size", "dimension", "max_len",
+                          "dropout", "num_layers", "threshold"}
+
+    def __init__(self, model_config_path: utils.PathStr,
+                 model_ckpt_path: utils.PathStr):
+        super().__init__(model_config_path, self.expected_json_keys)
+
+        # dimension: int = self._config["dimension"]
+        # vocab_size: int = self._config["vocab_size"]
+        # dropout: float = self._config["dropout"]
+        # max_len: int = self._config["max_len"]
+        # num_layers: int = self._config["num_layers"]
+        #
+        # token_ids = tf.keras.Input(shape=(None,), dtype='int32')
+        #
+        # # Embedding lookup.
+        # token_embedding = tf.keras.layers.Embedding(vocab_size, dimension)
+        #
+        # # Query embeddings of shape [batch_size, Tq, dimension].
+        # x = token_embedding(token_ids)
+        # for i in range(num_layers):
+        #     print(f"##### {i}")
+        #     # TODO: Dropout
+        #     tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(
+        #             dimension, return_sequences=i != num_layers - 1),
+        #             input_shape=(max_len, dimension))
+        #
+        # x = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+
+        print(f"model_ckpt_path: {model_ckpt_path}")
+        self._model = tf.keras.models.load_model(str(model_ckpt_path))
+
+    def filter(self, samples: tf.Tensor) -> np.ndarray:
+        x = tf.stack([tf.pad(sample, [[0, self._config["max_len"] - len(sample)]])
+                      for sample in samples])
+        x = tf.cast(x, tf.int32)
+        scores = self._model.predict(x)
+        return scores[:, 0] > self._config["threshold"]
+
+    def save(self, path: utils.PathStr) -> None:
+        self._model.save(path)
+
+
 class NBCFilter(FilterInferenceBase):
     """Smart filter using a Naive Bayes Classifier.
     
@@ -145,11 +189,11 @@ class NBCFilter(FilterInferenceBase):
         # to get a bag of word vector of the sentence.
         bow_samples = tf.math.reduce_sum(one_hot, axis=1)
         prediction_scores = self._model.predict(bow_samples.numpy())
-
+        print(prediction_scores)
         # Threshold all the values to get the bolean mask.
         # TODO(julesgm): This part is error prone. Test more when live.
 
-        return prediction_scores > self._config["filter_threshold"]
+        return prediction_scores == 2
 
 # Map mapping the names of the different filter types to their class.
 # This allows us to receive their name by command-line argument, 
@@ -160,6 +204,7 @@ FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,
                   no_filter=NoFilterFilter,
                   no=NoFilterFilter,
                   # hand_written_rules=HandWrittenRulesFilter,
+                  lstm=LSTMFilter
                   )
 
 
