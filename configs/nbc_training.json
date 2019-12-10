@@ -3,5 +3,6 @@
         "alpha": 100000.0,
         "fit_prior": false
     },
-    "vocab_size": 28996
+    "vocab_size": 28996,
+    "batch_size": 10
 }

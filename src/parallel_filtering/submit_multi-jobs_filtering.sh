@@ -27,7 +27,7 @@ IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
 MOD_TYPE=nbc #"lstm" #nbc, lstm, no
 
 # Output directory to deposit the filtered tf examples
-out_dir_name="`date + "%Y-%m-%d"`_filtered-out_$MOD_TYPE"
+out_dir_name="PostCrashRun_`date + "%Y-%m-%d"`_filtered-out_$MOD_TYPE"
 
 if [[ "$USER" == "chenant" ]] ; then
   echo "CHENANT MODE"

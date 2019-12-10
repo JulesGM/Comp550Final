@@ -31,12 +31,13 @@ import tf_example_utils
 import utils
 import attention
 
-NUMBER_TO_SAMPLE = 16712
+NUMBER_TO_SAMPLE = 16712  # SocialIQA ... this is a bit dirty
+
 
 class FilterAbstractTrainer:
     """Base class of all Filter Trainer instances.
     Requires that the filters can be trained and that their models
-    can be saved. Also requires being able to accept a path in the 
+    can be saved. Also requires being able to accept a path in the
     init to a json configuration file.
     """
 
@@ -46,6 +47,9 @@ class FilterAbstractTrainer:
                  # We require a set to check equality.
                  ):
         # Open the file and load the configuration file.
+        with open(vocab_path) as fin:
+            self._idx_to_w = [w.strip() for w in fin]
+
         with open(config_path) as fin:
             self._config = json.load(fin)
 
@@ -57,23 +61,31 @@ class FilterAbstractTrainer:
                              f"Expected: {sorted(self._config)}")
 
     def train(self, data_from_labeled_set: tf.data.Dataset,
-              data_from_unlabeled_set: List[tf.Tensor],
-              batch_size: int):
+              data_from_unlabeled_set: List[tf.Tensor]) -> None:
         """Train the model of the smart filter.
         """
         raise NotImplementedError("Pure Abstract Method")
 
-    def save(self, path: utils.PathStr):
+    def save(self, path: utils.PathStr) -> None:
         """Save the model of the smart filter.
         This is so it can then be loaded by the filtering module.
         """
         raise NotImplementedError("Pure Abstract Method")
 
+    @property
+    def batch_size(self) -> int:
+        return self._config["batch_size"]
+
+    @batch_size.setter
+    def batch_size(self, val):
+        raise RuntimeError("Can't assign to the batch size this way.")
+
 #
 # class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
 #
 #     expected_json_keys = {"vocab_size", "num_heads", "dimension",
-#                           "dropout", "max_len", "fc_multiplier", "num_layers"}
+#                           "dropout", "max_len", "fc_multiplier", "num_layers"
+#                           "batch_size"}
 #
 #     def __init__(self, config_path: utils.PathStr):
 #         super().__init__(config_path, self.expected_json_keys)
@@ -132,49 +144,9 @@ class FilterAbstractTrainer:
 #         pass
 
 
-class FilterAbstractTrainer:
-    """Base class of all Filter Trainer instances.
-    Requires that the filters can be trained and that their models
-    can be saved. Also requires being able to accept a path in the
-    init to a json configuration file.
-    """
-
-    def __init__(self, config_path: utils.PathStr,
-                 expected_json_keys: Set[str],
-                 vocab_path: utils.PathStr
-                 # We require a set to check equality.
-                 ):
-        # Open the file and load the configuration file.
-        with open(vocab_path) as fin:
-            self._idx_to_w = [w.strip() for w in fin]
-
-        with open(config_path) as fin:
-            self._config = json.load(fin)
-
-        # Verify that the keys of the json file match the expected ones
-        # exactly.
-        if not self._config.keys() == expected_json_keys:
-            raise ValueError(f"Received different keys than expected.\n"
-                             f"Got:      {sorted(expected_json_keys)}\n"
-                             f"Expected: {sorted(self._config)}")
-
-    def train(self, data_from_labeled_set: tf.data.Dataset,
-              data_from_unlabeled_set: List[tf.Tensor],
-              batch_size: int):
-        """Train the model of the smart filter.
-        """
-        raise NotImplementedError("Pure Abstract Method")
-
-    def save(self, path: utils.PathStr):
-        """Save the model of the smart filter.
-        This is so it can then be loaded by the filtering module.
-        """
-        raise NotImplementedError("Pure Abstract Method")
-
-
 class LSTMFilterTrainer(FilterAbstractTrainer):
     expected_json_keys = {"vocab_size", "dimension", "max_len",
-                          "dropout", "num_layers"}
+                          "dropout", "num_layers", "batch_size"}
 
     def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
         super().__init__(config_path, self.expected_json_keys, vocab_path)
@@ -201,8 +173,7 @@ class LSTMFilterTrainer(FilterAbstractTrainer):
                                      outputs=x)
 
     def train(self, data_from_labeled_set: tf.data.Dataset,
-              data_from_unlabeled_set: List[tf.Tensor],
-              batch_size: int):
+              data_from_unlabeled_set: List[tf.Tensor],):
 
         data_from_labeled_set = [x["input_ids"] for x in
                                  tqdm.tqdm(data_from_labeled_set)]
@@ -250,7 +221,7 @@ class LSTMFilterTrainer(FilterAbstractTrainer):
 
         self._model.compile(optimizer="adam", loss="binary_crossentropy",
                             metrics=["accuracy"])
-        self._model.fit(x=x_ids, y=y, batch_size=batch_size,
+        self._model.fit(x=x_ids, y=y, batch_size=self.batch_size,
                         shuffle=True, verbose=True)
 
     def save(self, path: utils.PathStr) -> None:
@@ -261,7 +232,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
     """Smart filter using a Naive Bayes Classifier.
     Saves itself with the pickle module. Prototypical implementation.
     """
-    expected_json_keys = {"hyperparams", "vocab_size"}
+    expected_json_keys = {"hyperparams", "vocab_size", "batch_size"}
 
     def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
         super().__init__(config_path, self.expected_json_keys, vocab_path)
@@ -324,8 +295,7 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
         return tf.stack(output[0]), tf.stack(output[1])
 
     def train(self, data_from_labeled_set: tf.data.Dataset,
-              data_from_unlabeled_set: List[tf.Tensor],
-              batch_size: int):
+              data_from_unlabeled_set: List[tf.Tensor]):
         logging.info("Split and Stack Sentences")
         data_from_labeled_set, data_from_unlabeled_set = self._stack_per_sent(
                 data_from_labeled_set, data_from_unlabeled_set)
@@ -335,10 +305,10 @@ class NaiveBayesClassifierFilterTrainer(FilterAbstractTrainer):
 
         pre_concat = []
 
-        upper_bound = x.shape[0] // batch_size + 1
+        upper_bound = x.shape[0] // self.batch_size + 1
         logging.info("Creating Bag of Word Features")
         for i in tqdm.tqdm(range(upper_bound)):
-            batch = x[i * batch_size:(i + 1) * batch_size]
+            batch = x[i * self.batch_size:(i + 1) * self.batch_size]
 
             # Convert the id sequences to one hot representation.
             x_oh = tf.one_hot(batch, self._config["vocab_size"])
@@ -417,7 +387,7 @@ MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       )
 
 
-def main(batch_size: int, model_config_path: utils.PathStr,
+def main(model_config_path: utils.PathStr,
          model_type: str, trainer_save_path: utils.PathStr,
          glob_pattern_unlabeled_data: utils.PathStr,
          glob_pattern_labeled_data: utils.PathStr, vocab_path: utils.PathStr,
@@ -435,8 +405,6 @@ def main(batch_size: int, model_config_path: utils.PathStr,
     Some of the arguments could probably be moved to the configuration file.
 
     Arguments:
-        batch_size:
-            Size of the batches used for feature preparation.
         model_config_path:
             Path to the json config file.
         model_type:
@@ -507,7 +475,7 @@ def main(batch_size: int, model_config_path: utils.PathStr,
 
     # Trainer Action
     trainer = MODEL_TYPE_MAP[model_type](model_config_path, vocab_path)
-    trainer.train(data_from_labeled_set, data_from_unlabeled_set, batch_size)
+    trainer.train(data_from_labeled_set, data_from_unlabeled_set)
     trainer.save(str(trainer_save_path))
     logging.info("Done.")
 

@@ -25,53 +25,53 @@ FORCE="True"
 
 
 source ./venv_setup.sh
-#
-#echo -e "\n###################"
-#echo "# clean_bookcorpus.sh:"
-#echo "###################"
-#source clean_bookcorpus.sh
-#
-#echo -e "\n###################"
-#echo "# build_examples_from-id.sh:"
-#echo "###################"
-#source ./build_examples_from_id.sh
-#
-#echo -e "\n###################"
-#echo "# Rest of demo.sh:"
-#echo "###################"
-### Minor compatibility adjustment for the BERT code.
-#find "$BERT_LIB_PATH" -iname "*.py" -exec sed -i 's/tf.gfile./tf.io.gfile./g' "{}"  \;
-#
-## Download an example BERT vocab if it doesn't exist.
-#if [[ "$FORCE" == "True" ]] || [ ! -f "$VOCAB_PATH" ] ; then
-#    echo -e "\n####################################################"
-#    echo "Downloading the BERT vocab"
-#    echo "####################################################"
-#    wget "$VOCAB_URL" -O "$VOCAB_PATH"
-#fi
-#
-## Run `extract_socialiqa.py` with the default arguments
-#echo -e "\n####################################################"
-#echo "# extract_socialiqa.py:"
-#echo "####################################################"
-#python extract_socialiqa.py context --input_path=/tmp/socialiqa-train-dev/train.jsonl \
-#        --output_path="$TEXT_LINES" --force="$FORCE"
-#
-## Run the segmentation script.
-#echo -e "\n####################################################"
-#echo "# text_to_text_tokens.py:"
-#echo "####################################################"
-#python text_to_text_tokens.py --vocab_path="$VOCAB_PATH" --force="$FORCE" \
-#    --input_path="$TEXT_LINES" --output_path="$OUTPUT_PATH_TXT_BPE"
-#
-## Transfer the ids to tf.Examples. Right now, uses the labeled dataset twice as
-## a proof of concept (as we don't have the unlabeled data).
-#echo -e "\n####################################################"
-#echo "# bpe_text_to_ids_tf_examples.py:"
-#echo "####################################################"
-#python bpe_text_to_ids_tf_examples.py --bert_vocab_path="$VOCAB_PATH" \
-#    --input_data_path="$OUTPUT_PATH_TXT_BPE" --force="$FORCE" \
-#    --output_path="$OUTPUT_PATH_TF_EXAMPLES"
+
+echo -e "\n###################"
+echo "# clean_bookcorpus.sh:"
+echo "###################"
+source clean_bookcorpus.sh
+
+echo -e "\n###################"
+echo "# build_examples_from-id.sh:"
+echo "###################"
+source ./build_examples_from_id.sh
+
+echo -e "\n###################"
+echo "# Rest of demo.sh:"
+echo "###################"
+## Minor compatibility adjustment for the BERT code.
+find "$BERT_LIB_PATH" -iname "*.py" -exec sed -i 's/tf.gfile./tf.io.gfile./g' "{}"  \;
+
+# Download an example BERT vocab if it doesn't exist.
+if [[ "$FORCE" == "True" ]] || [ ! -f "$VOCAB_PATH" ] ; then
+    echo -e "\n####################################################"
+    echo "Downloading the BERT vocab"
+    echo "####################################################"
+    wget "$VOCAB_URL" -O "$VOCAB_PATH"
+fi
+
+# Run `extract_socialiqa.py` with the default arguments
+echo -e "\n####################################################"
+echo "# extract_socialiqa.py:"
+echo "####################################################"
+python extract_socialiqa.py context --input_path=/tmp/socialiqa-train-dev/train.jsonl \
+        --output_path="$TEXT_LINES" --force="$FORCE"
+
+# Run the segmentation script.
+echo -e "\n####################################################"
+echo "# text_to_text_tokens.py:"
+echo "####################################################"
+python text_to_text_tokens.py --vocab_path="$VOCAB_PATH" --force="$FORCE" \
+    --input_path="$TEXT_LINES" --output_path="$OUTPUT_PATH_TXT_BPE"
+
+# Transfer the ids to tf.Examples. Right now, uses the labeled dataset twice as
+# a proof of concept (as we don't have the unlabeled data).
+echo -e "\n####################################################"
+echo "# bpe_text_to_ids_tf_examples.py:"
+echo "####################################################"
+python bpe_text_to_ids_tf_examples.py --bert_vocab_path="$VOCAB_PATH" \
+    --input_data_path="$OUTPUT_PATH_TXT_BPE" --force="$FORCE" \
+    --output_path="$OUTPUT_PATH_TF_EXAMPLES"
 
 # Train the filter. Right now, runs over the labeled flattened dataset, as
 # a proof of concept (as we don't have the unlabeled data).
@@ -103,21 +103,21 @@ python filter_training.py --glob_pattern_labeled_data="$OUTPUT_PATH_TF_EXAMPLES"
 
 ## Run the filter. Right now, runs over the labeled flattened dataset, as
 ## a proof of concept (as we don't have the unlabeled data).
-#echo -e "\n####################################################"
-#echo "# Filter Inference"
-#echo "####################################################"
-#if [ ! -d "$FILTERED_OUTPUT_PATH" ] ; then
-#  mkdir "$FILTERED_OUTPUT_PATH"
-#fi
-#
-#python filter_inference.py --filter_type="$MODEL" \
-#        --num_map_threads=1 \
-#        --shuffle_buffer_size=10000 \
-#        --output_data_path="$FILTERED_OUTPUT_PATH" \
-#        --input_data_glob_pattern="$UNLABELED_DIR" \
-#        --json_config_path="$MODEL_CONFIG_PATH_INFERENCE" \
-#        --vocab_path="$VOCAB_PATH" \
-#        --model_ckpt_path="$MODEL_SAVE_PATH" \
-#        --num_output_shards=1 \
-#         --vocab_path="$VOCAB_PATH"
-#
+echo -e "\n####################################################"
+echo "# Filter Inference"
+echo "####################################################"
+if [ ! -d "$FILTERED_OUTPUT_PATH" ] ; then
+  mkdir "$FILTERED_OUTPUT_PATH"
+fi
+
+python filter_inference.py --filter_type="$MODEL" \
+        --num_map_threads=1 \
+        --shuffle_buffer_size=10000 \
+        --output_data_path="$FILTERED_OUTPUT_PATH" \
+        --input_data_glob_pattern="$UNLABELED_DIR" \
+        --json_config_path="$MODEL_CONFIG_PATH_INFERENCE" \
+        --vocab_path="$VOCAB_PATH" \
+        --model_ckpt_path="$MODEL_SAVE_PATH" \
+        --num_output_shards=1 \
+         --vocab_path="$VOCAB_PATH"
+
