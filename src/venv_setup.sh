@@ -4,8 +4,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 BOOKCORPUS_REPO="$SLURM_TMPDIR/bookcorpus-repo"   # temp Bookcorpus git repository
 VENV_PATH="$SLURM_TMPDIR/cur_venv"
 
-echo "VENV_PATH: \"$VENV_PATH\""
-echo "PYTHON EXECUTABLE: $(which python)"
+
 
 echo -e "\n###########################################################"
 echo "# Installing python"
@@ -17,7 +16,6 @@ module load cuda/10.0
 module load cuda/10.0/cudnn/7.6
 module load python/3.7/tensorflow-gpu/2.0.0
 
-
 echo -e "\n###########################################################"
 echo "# Building and activating the VENV"
 echo "###########################################################"
@@ -26,6 +24,10 @@ if [ ! -d "$VENV_PATH" ] ; then
   virtualenv "$VENV_PATH"
 fi
 source "$VENV_PATH/bin/activate"
+
+echo "VENV_PATH: \"$VENV_PATH\""
+echo "PYTHON EXECUTABLE: $(which python)"
+echo "PYTHONPATH VENV: $PYTHONPATH"
 
 # Installing local requirements (the bookcorpus repository isn't complete)
 echo -e "\n###########################################################"
@@ -41,7 +43,3 @@ if [ ! -d "$BOOKCORPUS_REPO" ] ; then
   git clone https://github.com/soskek/bookcorpus.git "$BOOKCORPUS_REPO"
 fi
 python -m pip install -r "$BOOKCORPUS_REPO/requirements.txt" -q
-
-
-
-

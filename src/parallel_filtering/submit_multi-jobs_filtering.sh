@@ -26,13 +26,22 @@ IN_DIR_PATH="/network/home/gagnonju/shared/data/tf_examples_dir"
 
 # Output directory to deposit the filtered tf examples
 out_dir_name="`date +"%Y-%m-%d"`_filtered-out_nofilter"
-OUT_DIR_PATH="/network/tmp1/chenant/sharing/comp-550/filter_models/inference/$out_dir_name"
+
+if [[ "$USER" == "chenant" ]] ; then
+  echo "CHENANT MODE"
+  OUT_DIR_PATH="/network/tmp1/chenant/sharing/comp-550/filter_models/inference/$out_dir_name"
+elif [[ "$USER" == "gagnonju" ]] ; then
+  echo "GAGNONJU MODE"
+  OUT_DIR_PATH="/network/home/gagnonju/shared/data/parallel_jobs_logs/$out_dir_name"
+else
+  echo "GOT UNKOWN USER: $USER"
+  exit
+fi
 
 # Path to the trained model pkl and confirguration
 MOD_TYPE="no_filter" #nbc, no_filter / no
 MOD_PKL="please_change_me_help.pkl"
 MOD_CONFIG="../configs/nbc_inference.json"
-
 
 # Job file to be submitted in parallel
 SLURM_FILE_PATH="./parallel_filtering/slurm_job_filtering.sh"
@@ -45,7 +54,7 @@ SHARD_PER_JOB=4   # number of shards per job (usually 4 for 4-core node)
 
 PARTITION="long"  # long (low priority0 so we can submit multiple jobs
 MEM_PER_JOB="16G"
-GRES_PER_JOB="gpu:10gb:1"
+GRES_PER_JOB="gpu:1"
 
 TIME_PER_JOB="1:00:00" # time allowed per job
 
@@ -57,14 +66,13 @@ SHARDING_QUANTITY=$(($NUM_JOBS * $SHARD_PER_JOB))
 SHARDING_IDX=0
 
 
-
 # ==
 # Create output directory
 #
 if [ ! -d "$OUT_DIR_PATH" ] ; then
   echo "Creating output directory at: $OUT_DIR_PATH"
   mkdir -p $OUT_DIR_PATH
-  echo "Directory created at `date`" >> $OUT_DIR_PATH/creation.txt
+  echo "Directory created at $(date)" >> "$OUT_DIR_PATH/creation.txt"
 fi
 
 
@@ -88,11 +96,11 @@ for ((i=1;i<=NUM_JOBS;i++)); do
          --mem=$MEM_PER_JOB \
          --gres=$GRES_PER_JOB \
          --time=$TIME_PER_JOB \
-         --output=$cur_out_file \
-         --error=$cur_error_file \
-         --export=in_dir=$IN_DIR_PATH,mod_type=$MOD_TYPE,mod_pkl=$MOD_PKL,mod_config=$MOD_CONFIG,out_dir=$OUT_DIR_PATH,shard_quant=$SHARDING_QUANTITY,n_shards=$SHARD_PER_JOB,start_shard_idx=$SHARDING_IDX \
-         --job-name=$job_name \
-         $SLURM_FILE_PATH
+         --output="$cur_out_file" \
+         --error="$cur_error_file" \
+         --export=in_dir=$IN_DIR_PATH,mod_type="$MOD_TYPE",mod_pkl=$MOD_PKL,mod_config="$MOD_CONFIG",out_dir="$OUT_DIR_PATH",shard_quant=$SHARDING_QUANTITY,n_shards="$SHARD_PER_JOB",start_shard_idx="$SHARDING_IDX" \
+         --job-name="$job_name" \
+         "$SLURM_FILE_PATH"
 
 
   # Increment the sharding index

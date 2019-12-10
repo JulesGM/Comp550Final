@@ -43,12 +43,9 @@ NUM_SHARDS=$n_shards              # passed from job submission script
 START_SHARD_IDX=$start_shard_idx  # passed from job submission script
 SHARD_QUANTITY=$shard_quant       # passed from job submission script
 
-
 # ==
 # Set-up the environment
-source ./venv_setup.sh
-
-
+source ./conda_venv_setup.sh
 
 # ==
 # Download an example BERT vocab if it doesn't exist.
@@ -59,7 +56,6 @@ if [[ "$FORCE" == "True" ]] || [ ! -f "$VOCAB_PATH" ] ; then
     wget "$VOCAB_URL" -O "$VOCAB_PATH"
 fi
 
-
 echo -e "\n####################################################"
 echo "Running filtering"
 echo "####################################################"
@@ -67,7 +63,7 @@ echo "####################################################"
 for ((i=0; i<NUM_SHARDS; i++)); do
   # Compute the sharding index
   CUR_SHARD_IDX=$(($i + $START_SHARD_IDX))
-
+  echo "Launching $i" ...
   python $PY_SCRIPT \
         --filter_type=$MODEL_TYPE \
         --batch_size=10 \
@@ -83,4 +79,13 @@ for ((i=0; i<NUM_SHARDS; i++)); do
         --sharding_quantity=$SHARD_QUANTITY \
         --sharding_idx $CUR_SHARD_IDX \
         &
+    # save the pid
+    pids[${i}]=$!
 done
+
+# Wait until all the jobs are done
+for pid in ${pids[*]}; do
+    echo "waiting on $pid"
+    wait $pid
+done
+echo "DONE"
