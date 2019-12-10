@@ -3,5 +3,6 @@
   "dropout": 0.5,
   "max_len": 128,
   "num_layers": 2,
-  "threshold": 0.55
+  "threshold": 0.55,
+  "batch_size": 1024
 }

@@ -111,7 +111,6 @@ python filter_training.py --glob_pattern_labeled_data="$OUTPUT_PATH_TF_EXAMPLES"
 #fi
 #
 #python filter_inference.py --filter_type="$MODEL" \
-#        --batch_size=100 -v=0 \
 #        --num_map_threads=1 \
 #        --shuffle_buffer_size=10000 \
 #        --output_data_path="$FILTERED_OUTPUT_PATH" \

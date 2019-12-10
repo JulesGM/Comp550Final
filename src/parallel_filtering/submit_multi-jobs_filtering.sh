@@ -24,7 +24,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # Input directory containing unfiltered, unmasked tf examples CONFIRM THIS
 IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
 
-MOD_TYPE="lstm" #nbc, lstm, no
+MOD_TYPE=nbc #"lstm" #nbc, lstm, no
 
 # Output directory to deposit the filtered tf examples
 out_dir_name="`date +"%Y-%m-%d"`_filtered-out_$MOD_TYPE"
@@ -83,8 +83,8 @@ fi
 # ==
 # Submit parallel jobs
 #
-#for ((i=1;i<=NUM_JOBS;i++)); do
-  i=4
+for ((i=1;i<=NUM_JOBS;i++)); do
+  #i=4
   SHARDING_IDX=$(expr "$i" \* "$SHARD_PER_JOB")
   # ==
   # Create the error and output file for each job
@@ -111,4 +111,4 @@ fi
 
   # Increment the sharding index
 
-#done
+done

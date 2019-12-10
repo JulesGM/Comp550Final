@@ -51,7 +51,7 @@ source ./parallel_filtering/conda_venv_setup.sh
 echo -e "\n####################################################"
 echo "Running filtering"
 echo "####################################################"
-#export CUDA_VISIBLE_DEVICES=""
+export CUDA_VISIBLE_DEVICES=""
 
 for ((i=0; i<NUM_SHARDS; i++)); do
   # Compute the sharding index
@@ -59,7 +59,6 @@ for ((i=0; i<NUM_SHARDS; i++)); do
   echo "Launching $i $PY_SCRIPT" ...
   python $PY_SCRIPT \
         --filter_type="$MODEL_TYPE" \
-        --batch_size=1024 \
         -v=0 \
         --num_map_threads=1 \
         --shuffle_buffer_size=1 \

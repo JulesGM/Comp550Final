@@ -63,6 +63,14 @@ class FilterInferenceBase:
         # it needs to be derived by the derived classes
         raise NotImplementedError("Pure Abstract Function")
 
+    @property
+    def batch_size(self):
+        return self._config["batch_size"]
+
+    @batch_size.setter
+    def batch_size(self, val):
+        raise RuntimeError("Can't assign to the batch size this way.")
+
 
 class NoFilterFilter(FilterInferenceBase):
     def __init__(self, model_config_path: utils.PathStr,
@@ -91,8 +99,8 @@ class NoFilterFilter(FilterInferenceBase):
 
 
 class LSTMFilter(FilterInferenceBase):
-    expected_json_keys = {"vocab_size", "dimension", "max_len",
-                          "dropout", "num_layers", "threshold"}
+    expected_json_keys = {"dimension", "dropout", "num_layers",
+                          "batch_size", "vocab_size", "max_len", "threshold"}
 
     def __init__(self, model_config_path: utils.PathStr,
                  model_ckpt_path: utils.PathStr):
@@ -149,7 +157,7 @@ class NBCFilter(FilterInferenceBase):
     """
     # Expected keys of the json config file that has the specific
     # configuration of this filter
-    expected_json_keys = {"vocab_size", "filter_threshold"}
+    expected_json_keys = {"vocab_size", "filter_threshold", "batch_size"}
     expected_merge_modes = {"either", "both"}
 
     # TODO(julesgm, im-ant): Should probably be moved to a separate file.
@@ -272,7 +280,7 @@ def main(args: argparse.Namespace):
         ) as writer:
 
         last_few = np.zeros(10)
-        for i, batch in enumerate(reader.batch(args.batch_size)):
+        for i, batch in enumerate(reader.batch(filter_.batch_size)):
             print(f"BATCH {i}")
             start = time.time()
             if signaled_to_stop:
@@ -308,7 +316,7 @@ def main(args: argparse.Namespace):
 
             logging.info(f"Batch {i}: {len(new_output_samples['input_ids'])}"
                          f" - {ratio} - {1. / mean_time} it/sec"
-                         f" - {args.batch_size / mean_time}")
+                         f" - {filter_.batch_size / mean_time}")
 
     logging.info("Done.")
                 
@@ -343,8 +351,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_map_threads", type=int, required=True,
                         help="Number of threads to use to de-serialize the "
                              "dataset.")
-    parser.add_argument("--batch_size", type=int, required=True,
-                        help="Size of the batches.")
     parser.add_argument("--vocab_path", type=pathlib.Path, required=True,
                         help="Path of BERT's the vocabulary file.")
     parser.add_argument("--merge_mode", "-mm", help="How to deal with a "
