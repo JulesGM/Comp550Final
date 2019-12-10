@@ -1,15 +1,9 @@
 #!/bin/bash
-#SBATCH --partition=main
-#SBATCH --gres=gpu:volta:1
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=32G
-#SBATCH --time=24:00:00
-#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/output-pretrain.txt
-#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/error-pretrain.txt
-
 # =============================================================================
 # Pre-train BERT given a directory of tensorflow example (.tfrecord) files.
 # Outputs the pretrained model to a directory of choice.
+#
+# Assume we will be running this from Comp550Final/src/
 #
 # =============================================================================
 set -e # Close immidiately if a line returns an error.
@@ -17,18 +11,20 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 
 # Path variables
-PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/final_output" # location of pretraining data dir
-PRETRAINING_PY="./src/bert/run_pretraining.py"    # location of the run_pretraining file
-PRETRAIN_OUT_DIR="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/"   # location to put the pre-trained BERT
+#PRETRAIN_DATA_DIR=$data_dir  # location of pretraining data dir
+PRETRAIN_DATA_DIR="/network/home/gagnonju/shared/data/parallel_jobs_logs/2019-12-09_filtered-out_nofilter" # debug
+PRETRAINING_PY="./bert/run_pretraining.py"    # location of the run_pretraining file
+#PRETRAIN_OUT_DIR=$out_dir    # location to put pre-trained BERT
+PRETRAIN_OUT_DIR="$SLURM_TMPDIR/model_out" # debug
 PRETRAIN_OUT_LOC="$PRETRAIN_OUT_DIR"      # local directory for pretrained BERT (e.g. $SLURM_TMPDIR/model_out")
 
 
 
 # BERT-trainin variables
-BERT_TRAIN_BATCH_SIZE="32" # originally 32
+BERT_TRAIN_BATCH_SIZE="32"          # originally 32
 BERT_TRAIN_MAX_SEQ_LEN="128"
 BERT_TRAIN_MAX_PRED_PER_SEQ="20"
-BERT_NUM_TRAIN_STEPS="1000000000"    # num training steps, orig is 20, increase for actual pretraining
+BERT_NUM_TRAIN_STEPS="1000000000"   # num training steps, orig is 20, increase for actual pretraining
 BERT_NUM_WARMUP_STEPS="10"
 BERT_TRAIN_LEARNING_RATE="2e-5"
 SAVE_CHECKPOINTS_STEPS="1500"       # 1600 steps is approx. 10 minutes of training on good GPU
@@ -79,7 +75,9 @@ fi
 
 # ==
 # Copy the tf-example pretraining data to local directory
+echo -e "\n=========="
 echo "Setting up pretraining data: $(date)"
+echo -e "==========\n"
 if [ ! -d "$TRAIN_DATA_LOC" ] ; then
   cp -r $PRETRAIN_DATA_DIR $TRAIN_DATA_LOC
 fi
@@ -94,9 +92,9 @@ module load cuda/10.0                                   # load gpu-related items
 module load cuda-10.0/cudnn/7.3
 module load python/3.7/tensorflow-gpu/1.15.0rc2
 
-echo "=========="
+echo -e "\n=========="
 echo "Starting BERT pre-training on: : $(date)"
-echo "=========="
+echo -e "==========\n"
 
 
 python -u "$PRETRAINING_PY" \
@@ -121,3 +119,14 @@ python -u "$PRETRAINING_PY" \
 #cp -r $PRETRAIN_OUT_LOC $PRETRAIN_OUT_DIR
 
 # TODO: maybe also use a grace period so copying is done when job is killed
+
+
+# =============================================================================
+# unusued sbatch arguments (now passed from input)
+# SBATCH.. --partition=long
+# --gres=gpu:volta:1
+# --cpus-per-task=2
+# --mem=32G
+# --time=24:00:00
+# --output=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/output-pretrain.txt
+# --error=/network/tmp1/chenant/sharing/comp-550/bert-pretrain/dec-7_test/error-pretrain.txt
