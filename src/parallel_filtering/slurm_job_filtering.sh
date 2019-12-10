@@ -30,8 +30,7 @@ MODEL_SAVE_PATH_LOC="$mod_pkl"    # passed from job submission script
 MODEL_CONFIG_PATH_INFERENCE="$mod_config" # passed form job submission script
 
 # Paths to download BERT's vocabulary files
-VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
-VOCAB_PATH="$SLURM_TMPDIR/vocab.txt"
+VOCAB_PATH="/network/home/gagnonju/shared/data/vocab.txt"
 
 
 # ==
@@ -47,19 +46,12 @@ SHARD_QUANTITY="$shard_quant"       # passed from job submission script
 # Set-up the environment
 source ./parallel_filtering/conda_venv_setup.sh
 
-# ==
-# Download an example BERT vocab if it doesn't exist.
-if [[ "$FORCE" == "True" ]] || [ ! -f "$VOCAB_PATH" ] ; then
-    echo -e "\n####################################################"
-    echo "Downloading the BERT vocab"
-    echo "####################################################"
-    wget "$VOCAB_URL" -O "$VOCAB_PATH"
-fi
+
 
 echo -e "\n####################################################"
 echo "Running filtering"
 echo "####################################################"
-export CUDA_VISIBLE_DEVICES=""
+#export CUDA_VISIBLE_DEVICES=""
 
 for ((i=0; i<NUM_SHARDS; i++)); do
   # Compute the sharding index
@@ -67,7 +59,7 @@ for ((i=0; i<NUM_SHARDS; i++)); do
   echo "Launching $i $PY_SCRIPT" ...
   python $PY_SCRIPT \
         --filter_type="$MODEL_TYPE" \
-        --batch_size=10 \
+        --batch_size=1024 \
         -v=0 \
         --num_map_threads=1 \
         --shuffle_buffer_size=1 \

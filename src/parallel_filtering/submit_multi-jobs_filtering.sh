@@ -56,9 +56,10 @@ SHARD_PER_JOB=4   # number of shards per job (usually 4 for 4-core node)
 
 PARTITION="long"  # long (low priority0 so we can submit multiple jobs
 MEM_PER_JOB="16G"
-GRES_PER_JOB="gpu:1"
+GRES_PER_JOB="gpu:pascal:1"
 
 TIME_PER_JOB="1:00:00" # time allowed per job
+
 
 
 
@@ -82,7 +83,9 @@ fi
 # ==
 # Submit parallel jobs
 #
-for ((i=1;i<=NUM_JOBS;i++)); do
+#for ((i=1;i<=NUM_JOBS;i++)); do
+  i=4
+  SHARDING_IDX=$(expr "$i" \* "$SHARD_PER_JOB")
   # ==
   # Create the error and output file for each job
   shard_name="shard-${SHARDING_IDX}_of_${SHARDING_QUANTITY}"
@@ -105,7 +108,7 @@ for ((i=1;i<=NUM_JOBS;i++)); do
          "$SLURM_FILE_PATH"
 
 
-  # Increment the sharding index
-  SHARDING_IDX=$(($SHARDING_IDX + $SHARD_PER_JOB))
 
-done
+  # Increment the sharding index
+
+#done
