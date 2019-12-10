@@ -14,6 +14,7 @@ import logging
 import pathlib
 import pickle
 import signal
+import time
 
 # Third-party imports
 import numpy as np
@@ -206,7 +207,7 @@ def main(args: argparse.Namespace):
             args.max_seq_len))
 
     if args.sharding_quantity:
-        name_prefix = f"{args.sharding_index}_"
+        name_prefix = f"{args.sharding_idx}_"
     else:
         name_prefix = ""
     output_files = [args.output_data_path/f"{name_prefix}filtered_{i}.tfrecord"
@@ -223,18 +224,19 @@ def main(args: argparse.Namespace):
             vocab_path=args.vocab_path, max_num_tokens=args.max_seq_len,
         ) as writer:
 
+        last_few = np.zeros(10)
         for i, batch in enumerate(reader.batch(args.batch_size)):
+            start = time.time()
             if signaled_to_stop:
                 break
             # Get the mask from the filter object.
             if args.max_num_batches and i > args.max_num_batches:
                 break
-            print(f"Batch {i}")
-
             sent_as = [batch["input_ids"][i][batch["segment_ids"][i] == 0][1: -1]
                        for i in range(len(batch["input_ids"]))]
             sent_bs = [batch["input_ids"][i][batch["segment_ids"][i] == 1]
                        for i in range(len(batch["input_ids"]))]
+
             sents = sent_as + sent_bs
             mask = filter_.filter(sents)
             if args.merge_mode == "both":
@@ -245,13 +247,20 @@ def main(args: argparse.Namespace):
             
             new_output_samples = {k: v[tf.constant(mask, dtype=tf.bool)] 
                                   for k, v in batch.items()}
-            
-            print(len(new_output_samples["input_ids"]))
-            print(len(new_output_samples["input_ids"]) / len(batch["input_ids"]))
-            # Add them to our positive samples.
+
+            ratio = (len(new_output_samples['input_ids']) /
+                     len(batch['input_ids']))
+
             writer.from_feature_batch(new_output_samples,
                 idx_to_words=idx_to_word, word_to_idx=word_to_idx,
                 masked_lm_prob=0.15, max_predictions_per_seq=20)
+
+            last_few[i % len(last_few)] = time.time() - start
+            mean_time = np.mean(last_few[:i + 1])
+
+            logging.info(f"Batch {i}: {len(new_output_samples['input_ids'])}"
+                         f" - {ratio} - {1. / mean_time} it/sec"
+                         f" - {args.batch_size / mean_time}")
 
     logging.info("Done.")
                 

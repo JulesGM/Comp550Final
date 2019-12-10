@@ -3,6 +3,7 @@ import collections
 import logging
 import pathlib
 import random
+import time
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Type, Union
 
 try:
@@ -204,6 +205,7 @@ class BERTExampleWriter(TfRecordWriter):
             feature.append(padding_value)
         return feature[:length]
 
+
     def from_feature_batch(self, batch, idx_to_words, word_to_idx,
                            masked_lm_prob: float, max_predictions_per_seq=0):
         """
@@ -222,7 +224,7 @@ class BERTExampleWriter(TfRecordWriter):
                     masked_lm_prob=masked_lm_prob,
                     max_predictions_per_seq=max_predictions_per_seq,
                     idx_to_words=idx_to_words, rng=random,
-                    word_to_idx=word_to_idx, do_whole_word_mask=True))
+                    word_to_idx=word_to_idx, do_whole_word_mask=False))
 
             masked_lm_weights = [1.0] * len(masked_lm_ids)
 
@@ -245,7 +247,9 @@ class BERTExampleWriter(TfRecordWriter):
             features["next_sentence_labels"] = _create_int_feature(
                     [next_sentence_label], 1)
 
+
             self._write_one(features)
+
 
         # In one beautiful // terrible line. Works because dicts are
         # ordered now:
