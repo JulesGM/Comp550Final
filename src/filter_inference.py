@@ -197,8 +197,10 @@ def main(args: argparse.Namespace):
     with open(args.vocab_path) as fin:
         idx_to_word = [x.strip() for x in fin.read().strip().split("\n")]
     word_to_idx = {w: i for i, w in enumerate(idx_to_word)}
+
+    print(f"args.input_data_glob_pattern: {args.input_data_glob_pattern}")
     reader = tf_example_utils.read_from_tf_example(
-        glob.glob(str(args.input_data_path)), sample_len=SAMPLE_LEN, 
+        glob.glob(str(args.input_data_glob_pattern)), sample_len=SAMPLE_LEN,
         shuffle_buffer_size=args.shuffle_buffer_size,
         num_map_threads=args.num_map_threads,
         sharding_idx=args.sharding_idx,
@@ -226,6 +228,7 @@ def main(args: argparse.Namespace):
 
         last_few = np.zeros(10)
         for i, batch in enumerate(reader.batch(args.batch_size)):
+            print(f"BATCH {i}")
             start = time.time()
             if signaled_to_stop:
                 break
@@ -272,7 +275,7 @@ if __name__ == "__main__":
                         required=True, help="Which type of filter we are using.")
     parser.add_argument("--json_config_path", type=pathlib.Path, required=True,
                         help="Path of the model's configuration file.")
-    parser.add_argument("--input_data_path", type=pathlib.Path, required=True,
+    parser.add_argument("--input_data_glob_pattern", type=pathlib.Path, required=True,
                         help="Path to the data.")
     parser.add_argument("--output_data_path", type=pathlib.Path, required=True,
                         help="Prefix of where to save the data.")
@@ -313,7 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--sharding_idx", type=int, default=None)
 
     args = parser.parse_args()
-
+    print("FROM WITHIN FILTER_INFERENCE.py")
     # Logging
     FORMAT = '%(message)s'
     logging.basicConfig(format=FORMAT)

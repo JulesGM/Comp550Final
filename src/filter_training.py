@@ -218,7 +218,8 @@ def load_data(paths: List[utils.PathStr], num_map_threads: int, sample_len: int
                                                  shuffle_buffer_size=1,
                                                  num_map_threads=num_map_threads,
                                                  num_epochs=1,
-                                                 parser_fn=parser_fn)
+                                                 parser_fn=parser_fn,
+                                                 )
 
 
 # Like in filter_inference, this is a map between the filter names

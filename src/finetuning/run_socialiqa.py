@@ -234,6 +234,7 @@ def example_to_token_ids_segment_ids_label_ids(
   token_ids = []
   segment_ids = []
 
+  # For each question..
   for choice_idx, answer_tokens in enumerate(answers_tokens):
     # TODO(julesgm): TEST ALL OF THIS
     boundary = (max_seq_length - 4) // 3

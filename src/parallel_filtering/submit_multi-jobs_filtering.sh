@@ -22,7 +22,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # Paths
 
 # Input directory containing unfiltered, unmasked tf examples CONFIRM THIS
-IN_DIR_PATH="/network/home/gagnonju/shared/data/tf_examples_dir"
+IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
 
 # Output directory to deposit the filtered tf examples
 out_dir_name="`date +"%Y-%m-%d"`_filtered-out_nofilter"
@@ -98,7 +98,7 @@ for ((i=1;i<=NUM_JOBS;i++)); do
          --time=$TIME_PER_JOB \
          --output="$cur_out_file" \
          --error="$cur_error_file" \
-         --export=in_dir=$IN_DIR_PATH,mod_type="$MOD_TYPE",mod_pkl=$MOD_PKL,mod_config="$MOD_CONFIG",out_dir="$OUT_DIR_PATH",shard_quant=$SHARDING_QUANTITY,n_shards="$SHARD_PER_JOB",start_shard_idx="$SHARDING_IDX" \
+         --export=in_dir="$IN_DIR_GLOB",mod_type="$MOD_TYPE",mod_pkl=$MOD_PKL,mod_config="$MOD_CONFIG",out_dir="$OUT_DIR_PATH",shard_quant=$SHARDING_QUANTITY,n_shards="$SHARD_PER_JOB",start_shard_idx="$SHARDING_IDX" \
          --job-name="$job_name" \
          "$SLURM_FILE_PATH"
 
