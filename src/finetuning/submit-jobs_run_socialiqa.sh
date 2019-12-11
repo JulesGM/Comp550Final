@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# Bash script to submit multiple jobs for pretraining BERT
+# Bash script to submit multiple jobs for finetune BERT
 #
 # Assume we will be running this from Comp550Final/src/
 # ============================================================================
@@ -9,16 +9,16 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 
 # Optional: message to put into the created directory
-dir_message="Pre-training BERT"
+dir_message="Fine-tune BERT"
 
 # Specify output directory name and path
 # Place to store the SLURM error and output, as well as logs
 
-output_dir_name="`date +"%Y-%m-%d"`_pretrain_bert_pt3_lr2e-3"
-output_dir_path="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/$output_dir_name"
+output_dir_name="`date +"%Y-%m-%d"`_finetune_bert"
+output_dir_path="/network/tmp1/chenant/sharing/comp-550/fine-tune/$output_dir_name"
 
 # Specify the actual SLURM job script to submit
-job_file_path="./pretraining/slurm_job_pretrain_bert.sh"
+job_file_path="./finetuning/slurm_job_run_socialiqa.sh"
 
 
 # ==
@@ -27,19 +27,18 @@ job_file_path="./pretraining/slurm_job_pretrain_bert.sh"
 
 # Job name, used to name the sub-directories and output and error files
 
-declare -a name_arr=("no-filter" "lstm-filter")
+declare -a name_arr=("finetune_lstm-data")
 
 # The path to the pretraining data directory for each job
-data_base_path="/network/home/gagnonju/shared/data/parallel_jobs_logs"
-declare -a data_paths=("$data_base_path/PostCrashRun_2019-12-10_filtered-out_no"
-                       "$data_base_path/PostCrashRun_2019-12-10_filtered-out_lstm"
+data_base_path="/network/tmp1/chenant/sharing/comp-550/bert-pretrain/2019-12-11_pretrain_bert_pt3_lr2e-3"
+declare -a data_paths=("$data_base_path/lstm-filter/temp"
                        )
 
 # Specify job partitions
-declare -a part_arr=("long" "long")
+declare -a part_arr=("long")
 
 # Specify resource needs
-declare -a gres_arr=("gpu:pascal:1" "gpu:pascal:1")
+declare -a gres_arr=("gpu:pascal:1")
 
 # Specify cpu need (same for all jobs)
 cpu_per_task="2"
@@ -68,16 +67,6 @@ if [ "${#name_arr[@]}" -ne "${#gres_arr[@]}" ]; then
   echo "Array length not equal, exiting."; exit
 fi
 
-
-#for path in "${data_paths[@]}" ; do
-#  if [[ ! -f "$path/"  ]] ; then
-#    echo "#############################"
-#    echo "\n\"$path\" doesnt exist"
-#    echo "#############################"
-#    ls "$path"
-#    exit
-#  fi
-#done
 
 # ==
 # Create output parent directory if non existant
