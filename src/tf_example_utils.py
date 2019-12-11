@@ -5,6 +5,7 @@ import pathlib
 import random
 import time
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Type, Union
+from typing import TypeVar, Optional
 
 try:
     import colored_traceback.auto
@@ -12,9 +13,6 @@ except ImportError:
     pass
 import numpy as np
 import tensorflow as tf
-import tqdm
-from typing import TypeVar, Optional
-
 import utils
 
 CLS_TOKEN = "[CLS]"
@@ -205,7 +203,6 @@ class BERTExampleWriter(TfRecordWriter):
             feature.append(padding_value)
         return feature[:length]
 
-
     def from_feature_batch(self, batch, idx_to_words, word_to_idx,
                            masked_lm_prob: float, max_predictions_per_seq=0):
         """
@@ -247,9 +244,47 @@ class BERTExampleWriter(TfRecordWriter):
             features["next_sentence_labels"] = _create_int_feature(
                     [next_sentence_label], 1)
 
-
             self._write_one(features)
 
+    def from_masked_feature_batch(self, batch, max_predictions_per_seq=0):
+        """
+        Weird dict unbatching.
+        """
+        if not (len(batch["input_ids"]) == len(batch["input_mask"])
+                == len(batch["segment_ids"])):
+            raise RuntimeError("One feature had a weird length.")
+
+        for (input_ids, input_mask, segment_ids, next_sentence_label,
+             masked_lm_positions, masked_lm_ids, masked_lm_weights,
+             next_sentence_labels) in zip(
+                batch["input_ids"], batch["input_mask"],
+                batch["segment_ids"], batch["next_sentence_labels"],
+                batch["masked_lm_positions"], batch["masked_lm_ids"],
+                batch["masked_lm_weights"],
+                batch["next_sentence_labels"]
+        ):
+            features = collections.OrderedDict()
+            features["input_ids"] = _create_int_feature(input_ids,
+                                                        self._max_num_tokens)
+            features["input_mask"] = _create_int_feature(input_mask,
+                                                         self._max_num_tokens)
+            features["segment_ids"] = _create_int_feature(segment_ids,
+                                                          self._max_num_tokens)
+            features["masked_lm_positions"] = _create_int_feature(
+                    self._pad(masked_lm_positions, max_predictions_per_seq,
+                              0),
+                    max_predictions_per_seq)
+            features["masked_lm_ids"] = _create_int_feature(
+                    self._pad(masked_lm_ids, max_predictions_per_seq, 0),
+                    max_predictions_per_seq)
+            features["masked_lm_weights"] = _create_float_feature(
+                    self._pad(masked_lm_weights, max_predictions_per_seq,
+                              0.0),
+                    max_predictions_per_seq)
+            features["next_sentence_labels"] = _create_int_feature(
+                    [next_sentence_label], 1)
+
+            self._write_one(features)
 
         # In one beautiful // terrible line. Works because dicts are
         # ordered now:
