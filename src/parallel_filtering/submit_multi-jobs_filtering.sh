@@ -21,13 +21,32 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 # ==
 # Paths
 
+MOD_TYPE="trans" #"lstm", "no"
+NUM_JOBS=5        # number of sbatch jobs to submit
+PARTITION="long"  # long (low priority0 so we can submit multiple jobs
+MEM_PER_JOB="16G"
+GRES_PER_JOB="gpu:1"
+TIME_PER_JOB="48:00:00" # time allowed per job
+# Output directory to deposit the filtered tf examples
+out_dir_name="PostCrashRun_`date +"%Y-%m-%d"`_filtered-out_$MOD_TYPE"
+
+if [[ "$MOD_TYPE" == "lstm" ]] || [[ "$MOD_TYPE" == "trans" ]] ; then
+  SHARD_PER_JOB=1   # number of shards per job (usually 4 for 4-core node)
+elif [[ "$MOD_TYPE" == "nbc" ]] || [[ "$MOD_TYPE" == "no" ]]; then
+  SHARD_PER_JOB=4
+  GRES_PER_JOB=""
+else
+  echo "FATAL ERROR: Wrong MOD_TYPE: $MOD_TYPE"
+  exit
+fi
+
+
+############################################################################################
+# Things after this line should only rarely change
+############################################################################################
+
 # Input directory containing unfiltered, unmasked tf examples CONFIRM THIS
 IN_DIR_GLOB='/network/home/gagnonju/shared/data/tf_examples_dir/*'
-
-MOD_TYPE=nbc #"lstm" #nbc, lstm, no
-
-# Output directory to deposit the filtered tf examples
-out_dir_name="PostCrashRun_`date + "%Y-%m-%d"`_filtered-out_$MOD_TYPE"
 
 if [[ "$USER" == "chenant" ]] ; then
   echo "CHENANT MODE"
@@ -44,31 +63,14 @@ fi
 
 MOD_PKL="/network/home/gagnonju/shared/models/model_${MOD_TYPE}.pkl"
 MOD_CONFIG="../configs/${MOD_TYPE}_inference.json"
-
 # Job file to be submitted in parallel
 SLURM_FILE_PATH="./parallel_filtering/slurm_job_filtering.sh"
-
 # ==
 # Options
-
-NUM_JOBS=5        # number of sbatch jobs to submit
-SHARD_PER_JOB=4   # number of shards per job (usually 4 for 4-core node)
-
-PARTITION="long"  # long (low priority0 so we can submit multiple jobs
-MEM_PER_JOB="16G"
-GRES_PER_JOB="gpu:1"
-
-TIME_PER_JOB="48:00:00" # time allowed per job
-
-
-
-
 # ==
 # No need to modify below - counter variables
 SHARDING_QUANTITY=$(($NUM_JOBS * $SHARD_PER_JOB))
 SHARDING_IDX=0
-
-
 # ==
 # Create output directory
 #
@@ -77,21 +79,17 @@ if [ ! -d "$OUT_DIR_PATH" ] ; then
   mkdir -p $OUT_DIR_PATH
   echo "Directory created at $(date)" >> "$OUT_DIR_PATH/creation.txt"
 fi
-
-
-
 # ==
 # Submit parallel jobs
 #
-for ((i=1;i<=NUM_JOBS;i++)); do
-  #i=4
-  SHARDING_IDX=$(expr "$i" \* "$SHARD_PER_JOB")
+for i in $(seq 0 "$(expr $NUM_JOBS \- 1)"); do
+  echo $i / $NUM_JOBS
+  SHARDING_IDX=$(python -c "print($i * $SHARD_PER_JOB)")
   # ==
   # Create the error and output file for each job
   shard_name="shard-${SHARDING_IDX}_of_${SHARDING_QUANTITY}"
   cur_error_file="$OUT_DIR_PATH/error_${shard_name}.txt"
   cur_out_file="$OUT_DIR_PATH/output_${shard_name}.txt"
-
   job_name="${shard_name}_parallel-job"
 
   # ==
@@ -106,9 +104,6 @@ for ((i=1;i<=NUM_JOBS;i++)); do
          --export=in_dir="$IN_DIR_GLOB",mod_type="$MOD_TYPE",mod_pkl=$MOD_PKL,mod_config="$MOD_CONFIG",out_dir="$OUT_DIR_PATH",shard_quant=$SHARDING_QUANTITY,n_shards="$SHARD_PER_JOB",start_shard_idx="$SHARDING_IDX" \
          --job-name="$job_name" \
          "$SLURM_FILE_PATH"
-
-
-
-  # Increment the sharding index
+  echo "submitted 1"
 
 done

@@ -1,5 +1,5 @@
 {
-    "vocab_size": 28996, 
-    "filter_threshold": 0.5,
-    "batch_size": 10
+    "vocab_size": 28996,
+    "filter_threshold": 0.95,
+    "batch_size": 1000
 }

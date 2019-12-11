@@ -81,9 +81,8 @@ class FilterAbstractTrainer:
 
 
 class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
-
-    expected_json_keys = {"vocab_size", "num_heads", "dimension",
-                          "dropout", "max_len", "fc_multiplier", "num_layers"
+    expected_json_keys = {"vocab_size", "dimension",
+                          "dropout", "max_len", "fc_multiplier", "num_layers",
                           "batch_size"}
 
     def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
@@ -110,26 +109,26 @@ class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
         for i in range(num_layers):
             x = tf.keras.layers.Dropout(dropout)(x)
             fc_q = tf.keras.layers.Dropout(dropout)(
-                    tf.keras.layers.Dense(dimension)(x))
+                    tf.keras.layers.Conv1D(dimension, 1)(x))
             fc_k = tf.keras.layers.Dropout(dropout)(
-                    tf.keras.layers.Dense(dimension)(x))
+                    tf.keras.layers.Conv1D(dimension, 1)(x))
             fc_v = tf.keras.layers.Dropout(dropout)(
-                    tf.keras.layers.Dense(dimension)(x))
+                    tf.keras.layers.Conv1D(dimension, 1)(x))
             att = tf.keras.layers.Dropout(dropout)(
                     tf.keras.layers.Attention()([fc_q, fc_k, fc_v],
-                                              token_ids != 0, token_ids != 0))
-            fc_o = tf.keras.layers.Dense(dimension)(x)(att)
+                                              [token_ids != 0, token_ids != 0]))
+            fc_o = tf.keras.layers.Conv1D(dimension, 1)(att)
             x = tf.keras.layers.LayerNormalization()(fc_o + x)
 
-            fc_in = tf.keras.layers.Dense(dimension * fc_multiplier,
+            fc_in = tf.keras.layers.Conv1D(dimension * fc_multiplier, 1,
                                            activation="relu")(
                     tf.keras.layers.Dropout(dropout)(x))
-            fc_out = tf.keras.layers.Dense(dimension)(
+            fc_out = tf.keras.layers.Conv1D(dimension, 1)(
                     tf.keras.layers.Dropout(dropout)(fc_in))
             x = tf.keras.layers.LayerNormalization()(fc_out + x)
 
         x = tf.keras.layers.GlobalAveragePooling1D()(x)
-        x = tf.keras.layers.Dense(1, activation="logistic")(x)
+        x = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         self._model = tf.keras.Model(inputs=token_ids,
                                      outputs=x)
@@ -189,6 +188,7 @@ class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
 
     def save(self, path: utils.PathStr) -> None:
         self._model.save(path)
+
 
 class LSTMFilterTrainer(FilterAbstractTrainer):
     expected_json_keys = {"vocab_size", "dimension", "max_len",
@@ -428,7 +428,7 @@ MODEL_TYPE_MAP = dict(naive_bayes=NaiveBayesClassifierFilterTrainer,
                       nbc=NaiveBayesClassifierFilterTrainer,
 
 
-                      # Not functional: trans=TransformerEncoderFilterTrainer,
+                      trans=TransformerEncoderFilterTrainer,
                       lstm=LSTMFilterTrainer
                       )
 

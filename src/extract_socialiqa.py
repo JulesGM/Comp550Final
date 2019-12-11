@@ -52,16 +52,11 @@ if __name__ == "__main__":
                             CRITICAL = 50 
                             FATAL = CRITICAL         
                         """)
-    parser.add_argument("--input_path", "-ip", 
-                        default=pathlib.Path("/tmp/socialiqa-train-dev/train.jsonl"),
-                        type=pathlib.Path,
+    parser.add_argument("--input_path", "-ip", type=pathlib.Path,
                         help="Location of the jsonl with the training examples.")
-    parser.add_argument("--output_path", "-op", 
-                        default=pathlib.Path("socialiqa-train-output.txt"), type=pathlib.Path,
+    parser.add_argument("--output_path", "-op", type=pathlib.Path,
                         help="Where the final text file is saved.")
-    parser.add_argument("--tmp_dir", "-td",
-                        default=pathlib.Path("/tmp/"), 
-                        type=pathlib.Path, 
+    parser.add_argument("--tmp_dir", "-td", type=pathlib.Path,
                         help="Where the zip is downloaded and unzipped.")
     parser.add_argument("--force", "-f", type=utils.safe_bool_arg,
                         help="Force redownloading & reunzipping")

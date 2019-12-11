@@ -52,8 +52,8 @@ class FilterInferenceBase:
         # Validate the keys of the config file.
         if not self._config.keys() == expected_json_keys:
             raise ValueError(f"Received different keys than expected.\n"
-                             f"Got:      {sorted(expected_json_keys)}\n"
-                             f"Expected: {sorted(self._config)}")
+                             f"Got:      {sorted(self._config)}\n"
+                             f"Expected: {sorted(expected_json_keys)}")
 
     def filter(self, samples: tf.Tensor) -> np.ndarray:
         """ Returns a Numpy array with booleans, telling which samples to use.
@@ -101,20 +101,21 @@ class NoFilterFilter(FilterInferenceBase):
 
 
 class TransformerFilter(FilterInferenceBase):
-    expected_json_keys = {"vocab_size", "num_heads", "dimension", "threshold",
-                          "dropout", "max_len", "fc_multiplier", "num_layers"
-                                                                 "batch_size"}
+    expected_json_keys = {"vocab_size", "threshold", "max_len", "batch_size"}
 
     def __init__(self, model_config_path: utils.PathStr,
                  model_ckpt_path: utils.PathStr):
         super().__init__(model_config_path, self.expected_json_keys)
-        self._model = tf.keras.models.load_model(str(model_ckpt_path))
+        self._model: tf.keras.Model = tf.keras.models.load_model(str(model_ckpt_path))
 
     def filter(self, samples: tf.Tensor) -> np.ndarray:
+
+
         x = tf.stack([tf.pad(sample, [[0, self._config["max_len"] - len(sample)]])
                       for sample in samples])
         x = tf.cast(x, tf.int32)
         scores = self._model.predict(x)
+
         return scores[:, 0] > self._config["threshold"]
 
     def save(self, path: utils.PathStr) -> None:
@@ -122,8 +123,7 @@ class TransformerFilter(FilterInferenceBase):
 
 
 class LSTMFilter(FilterInferenceBase):
-    expected_json_keys = {"dimension", "dropout", "num_layers",
-                          "batch_size", "vocab_size", "max_len", "threshold"}
+    expected_json_keys = {"batch_size", "vocab_size", "max_len", "threshold"}
 
     def __init__(self, model_config_path: utils.PathStr,
                  model_ckpt_path: utils.PathStr):
@@ -195,12 +195,9 @@ class NBCFilter(FilterInferenceBase):
         # Add the one hot representations over the length of the sentence
         # to get a bag of word vector of the sentence.
         bow_samples = tf.math.reduce_sum(one_hot, axis=1)
-        prediction_scores = self._model.predict(bow_samples.numpy())
-        print(prediction_scores)
-        # Threshold all the values to get the bolean mask.
-        # TODO(julesgm): This part is error prone. Test more when live.
+        prediction_scores = self._model.predict_proba(bow_samples.numpy())
 
-        return prediction_scores == 2
+        return prediction_scores[1] > self._config["filter_threshold"]
 
 # Map mapping the names of the different filter types to their class.
 # This allows us to receive their name by command-line argument, 
@@ -211,7 +208,8 @@ FILTER_MAP = dict(naive_bayes_classifier=NBCFilter,
                   no_filter=NoFilterFilter,
                   no=NoFilterFilter,
                   # hand_written_rules=HandWrittenRulesFilter,
-                  lstm=LSTMFilter
+                  lstm=LSTMFilter,
+                  trans=TransformerFilter,
                   )
 
 

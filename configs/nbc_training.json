@@ -4,5 +4,5 @@
         "fit_prior": false
     },
     "vocab_size": 28996,
-    "batch_size": 10
+    "batch_size": 1
 }
