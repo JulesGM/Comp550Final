@@ -27,7 +27,6 @@ import tf_example_utils
 import utils
 
 SAMPLES_PER_OUTPUT_FILE = 1000
-SAMPLE_LEN = 128
 
 
 class FilterInferenceBase:
@@ -73,15 +72,18 @@ class FilterInferenceBase:
 
 
 class NoFilterFilter(FilterInferenceBase):
+
+    _expected_json_keys = {"batch_size", "vocab_size"}
     def __init__(self, model_config_path: utils.PathStr,
-                 model_ckpt_path: utils.PathStr):
+                        model_ckpt_path: utils.PathStr):
+
         """ Loads the model.
         Arguments:
             model_config_path: Where the config.json file is saved.
             model_ckpt_path: Pickle save of the model
         """
-        # Call the constructor of the base class.
-        pass
+        super().__init__(model_config_path,
+                         expected_json_keys=self._expected_json_keys)
 
     def filter(self, samples: tf.Tensor) -> np.ndarray:
         """Filter the samples.
@@ -98,6 +100,27 @@ class NoFilterFilter(FilterInferenceBase):
         return tf.ones(len(samples), tf.dtypes.bool)
 
 
+class TransformerFilter(FilterInferenceBase):
+    expected_json_keys = {"vocab_size", "num_heads", "dimension", "threshold",
+                          "dropout", "max_len", "fc_multiplier", "num_layers"
+                                                                 "batch_size"}
+
+    def __init__(self, model_config_path: utils.PathStr,
+                 model_ckpt_path: utils.PathStr):
+        super().__init__(model_config_path, self.expected_json_keys)
+        self._model = tf.keras.models.load_model(str(model_ckpt_path))
+
+    def filter(self, samples: tf.Tensor) -> np.ndarray:
+        x = tf.stack([tf.pad(sample, [[0, self._config["max_len"] - len(sample)]])
+                      for sample in samples])
+        x = tf.cast(x, tf.int32)
+        scores = self._model.predict(x)
+        return scores[:, 0] > self._config["threshold"]
+
+    def save(self, path: utils.PathStr) -> None:
+        self._model.save(path)
+
+
 class LSTMFilter(FilterInferenceBase):
     expected_json_keys = {"dimension", "dropout", "num_layers",
                           "batch_size", "vocab_size", "max_len", "threshold"}
@@ -105,30 +128,6 @@ class LSTMFilter(FilterInferenceBase):
     def __init__(self, model_config_path: utils.PathStr,
                  model_ckpt_path: utils.PathStr):
         super().__init__(model_config_path, self.expected_json_keys)
-
-        # dimension: int = self._config["dimension"]
-        # vocab_size: int = self._config["vocab_size"]
-        # dropout: float = self._config["dropout"]
-        # max_len: int = self._config["max_len"]
-        # num_layers: int = self._config["num_layers"]
-        #
-        # token_ids = tf.keras.Input(shape=(None,), dtype='int32')
-        #
-        # # Embedding lookup.
-        # token_embedding = tf.keras.layers.Embedding(vocab_size, dimension)
-        #
-        # # Query embeddings of shape [batch_size, Tq, dimension].
-        # x = token_embedding(token_ids)
-        # for i in range(num_layers):
-        #     print(f"##### {i}")
-        #     # TODO: Dropout
-        #     tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(
-        #             dimension, return_sequences=i != num_layers - 1),
-        #             input_shape=(max_len, dimension))
-        #
-        # x = tf.keras.layers.Dense(1, activation="sigmoid")(x)
-
-        print(f"model_ckpt_path: {model_ckpt_path}")
         self._model = tf.keras.models.load_model(str(model_ckpt_path))
 
     def filter(self, samples: tf.Tensor) -> np.ndarray:
@@ -253,7 +252,7 @@ def main(args: argparse.Namespace):
 
     print(f"args.input_data_glob_pattern: {args.input_data_glob_pattern}")
     reader = tf_example_utils.read_from_tf_example(
-        glob.glob(str(args.input_data_glob_pattern)), sample_len=SAMPLE_LEN,
+        glob.glob(str(args.input_data_glob_pattern)), sample_len=args.max_seq_len,
         shuffle_buffer_size=args.shuffle_buffer_size,
         num_map_threads=args.num_map_threads,
         sharding_idx=args.sharding_idx,

@@ -29,7 +29,6 @@ from typing import Any, Dict, List
 
 import tf_example_utils
 import utils
-import attention
 
 NUMBER_TO_SAMPLE = 16712  # SocialIQA ... this is a bit dirty
 
@@ -80,69 +79,116 @@ class FilterAbstractTrainer:
     def batch_size(self, val):
         raise RuntimeError("Can't assign to the batch size this way.")
 
-#
-# class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
-#
-#     expected_json_keys = {"vocab_size", "num_heads", "dimension",
-#                           "dropout", "max_len", "fc_multiplier", "num_layers"
-#                           "batch_size"}
-#
-#     def __init__(self, config_path: utils.PathStr):
-#         super().__init__(config_path, self.expected_json_keys)
-#
-#         num_heads: int = self._config["num_heads"]
-#         dimension: int = self._config["dimension"]
-#         vocab_size: int = self._config["vocab_size"]
-#         dropout: float = self._config["dropout"]
-#         max_len: int = self._config["max_len"]
-#         num_layers: int = self._config["num_layers"]
-#         fc_multiplier: int = self._config["fc_multiplier"]
-#
-#         token_ids = tf.keras.Input(shape=(None,), dtype='int32')
-#         position_ids = tf.keras.Input(shape=(None,), dtype='int32')
-#
-#         # Embedding lookup.
-#         token_embedding = tf.keras.layers.Embedding(vocab_size, dimension)
-#         positon_embedding = tf.keras.layers.Embedding(max_len, dimension)
-#
-#         # Query embeddings of shape [batch_size, Tq, dimension].
-#         x = token_embedding(token_ids) + positon_embedding(position_ids)
-#         for i in range(num_layers):
-#             print(f"##### {i}")
-#             att = attention.MultiHeadSelfAttention(num_heads=num_heads,
-#                                                    use_masking=False,
-#                                                    dropout=dropout)(x)
-#             x = tf.keras.layers.LayerNormalization()(att + x)
-#             fc_in = tf.keras.layers.Conv1D(dimension * fc_multiplier, 1,
-#                                            activation="relu")(x)
-#             fc_out = tf.keras.layers.Conv1D(dimension, 1)(fc_in)
-#             x = tf.keras.layers.LayerNormalization()(fc_out + x)
-#
-#         x = tf.keras.layers.GlobalAveragePooling1D()(x)
-#         x = tf.keras.layers.Dense(2, activation="softmax")(x)
-#
-#         self._model = tf.keras.Model(inputs=(token_ids, position_ids),
-#                                      outputs=x)
-#
-#     def train(self, data_from_labeled_set: tf.data.Dataset,
-#               data_from_unlabeled_set: List[tf.Tensor],
-#               batch_size: int):
-#         data_from_labeled_set = list(data_from_labeled_set)
-#         data_from_unlabeled_set = list(data_from_unlabeled_set)
-#
-#         y = np.concatenate([np.ones(dtype=int,
-#                                     shape=[len(data_from_labeled_set)]),
-#                             2 * np.ones(dtype=int,
-#                                         shape=[len(data_from_unlabeled_set)])])
-#         x_ids = itertools.chain(data_from_labeled_set, data_from_unlabeled_set)
-#         x_pos = (np.arange(self._max_len) for _ in itertools.count())
-#
-#         self._model.fit(x=list(zip(x_ids, x_pos)), y=y, batch_size=batch_size,
-#                         shuffle=True, verbose=True)
-#
-#     def save(self, path: utils.PathStr) -> None:
-#         pass
 
+class TransformerEncoderFilterTrainer(FilterAbstractTrainer):
+
+    expected_json_keys = {"vocab_size", "num_heads", "dimension",
+                          "dropout", "max_len", "fc_multiplier", "num_layers"
+                          "batch_size"}
+
+    def __init__(self, config_path: utils.PathStr, vocab_path: utils.PathStr):
+        super().__init__(config_path, self.expected_json_keys,
+                         vocab_path=vocab_path)
+
+        dimension: int = self._config["dimension"]
+        vocab_size: int = self._config["vocab_size"]
+        dropout: float = self._config["dropout"]
+        max_len: int = self._config["max_len"]
+        num_layers: int = self._config["num_layers"]
+        fc_multiplier: int = self._config["fc_multiplier"]
+
+        token_ids = tf.keras.Input(shape=(None,), dtype='int32')
+        # position_ids = tf.keras.Input(shape=(None,), dtype='int32')
+
+        # Embedding lookup.
+        token_embedding = tf.keras.layers.Embedding(vocab_size, dimension)
+        positon_embedding = tf.keras.layers.Embedding(max_len, dimension)
+
+        # Query embeddings of shape [batch_size, Tq, dimension].
+        x = token_embedding(token_ids) + positon_embedding(
+                tf.range(max_len))
+        for i in range(num_layers):
+            x = tf.keras.layers.Dropout(dropout)(x)
+            fc_q = tf.keras.layers.Dropout(dropout)(
+                    tf.keras.layers.Dense(dimension)(x))
+            fc_k = tf.keras.layers.Dropout(dropout)(
+                    tf.keras.layers.Dense(dimension)(x))
+            fc_v = tf.keras.layers.Dropout(dropout)(
+                    tf.keras.layers.Dense(dimension)(x))
+            att = tf.keras.layers.Dropout(dropout)(
+                    tf.keras.layers.Attention()([fc_q, fc_k, fc_v],
+                                              token_ids != 0, token_ids != 0))
+            fc_o = tf.keras.layers.Dense(dimension)(x)(att)
+            x = tf.keras.layers.LayerNormalization()(fc_o + x)
+
+            fc_in = tf.keras.layers.Dense(dimension * fc_multiplier,
+                                           activation="relu")(
+                    tf.keras.layers.Dropout(dropout)(x))
+            fc_out = tf.keras.layers.Dense(dimension)(
+                    tf.keras.layers.Dropout(dropout)(fc_in))
+            x = tf.keras.layers.LayerNormalization()(fc_out + x)
+
+        x = tf.keras.layers.GlobalAveragePooling1D()(x)
+        x = tf.keras.layers.Dense(1, activation="logistic")(x)
+
+        self._model = tf.keras.Model(inputs=token_ids,
+                                     outputs=x)
+
+    def train(self, data_from_labeled_set: tf.data.Dataset,
+              data_from_unlabeled_set: List[tf.Tensor],):
+
+        data_from_labeled_set = [x["input_ids"] for x in
+                                 tqdm.tqdm(data_from_labeled_set)]
+        data_from_unlabeled_set = [x["input_ids"] for x in
+                                   tqdm.tqdm(data_from_unlabeled_set)]
+        assert len(data_from_labeled_set) == len(data_from_unlabeled_set)
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        print(f"len(data_from_labeled_set): {len(data_from_labeled_set)}")
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        print(f"len(data_from_unlabeled_set): {len(data_from_unlabeled_set)}")
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        y = tf.concat(
+            [tf.zeros(dtype=tf.int64, shape=[len(data_from_labeled_set), 1]),
+             tf.ones(dtype=tf.int64, shape=[len(data_from_unlabeled_set), 1])],
+                      axis=0)
+
+        for _ in range(10):
+            idx = random.choice(range(len(data_from_labeled_set)))
+            print(idx)
+            print(" ".join([self._idx_to_w[i]
+                        for i in data_from_labeled_set[idx] if i != 0]))
+
+        print("\n#########################################################")
+        print("#########################################################")
+        print("#########################################################\n")
+
+        for _ in range(10):
+            idx = random.choice(range(len(data_from_unlabeled_set)))
+            print(idx)
+            print(" ".join([self._idx_to_w[i]
+                        for i in data_from_unlabeled_set[idx] if i != 0]))
+        x_ids = tf.stack(data_from_labeled_set + data_from_unlabeled_set)
+        # x_pos = (np.arange(128) for x in itertools.count())
+
+        self._model.compile(optimizer="adam", loss="binary_crossentropy",
+                            metrics=["accuracy"])
+        self._model.fit(x=x_ids, y=y, batch_size=self.batch_size,
+                        shuffle=True, verbose=True)
+
+    def save(self, path: utils.PathStr) -> None:
+        self._model.save(path)
 
 class LSTMFilterTrainer(FilterAbstractTrainer):
     expected_json_keys = {"vocab_size", "dimension", "max_len",

@@ -1,7 +1,6 @@
 {"vocab_size": 28996,
-  "num_heads": 4,
   "dimension": 16,
-  "dropout": 0.5,
+  "dropout": 0.1,
   "max_len": 128,
   "num_layers": 2,
   "fc_multiplier": 2

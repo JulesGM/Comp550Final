@@ -1,6 +1,6 @@
 {
     "hyperparams": {
-        "alpha": 100000.0,
+        "alpha": 1.0,
         "fit_prior": false
     },
     "vocab_size": 28996,

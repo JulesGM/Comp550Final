@@ -224,11 +224,11 @@ def example_to_token_ids_segment_ids_label_ids(
     tokenizer):
   """Converts an ``InputExample`` to token ids and segment ids."""
   if ex_index < 5:
-    tf.logging.info(f"*** Example {ex_index} ***")
-    tf.logging.info(f"qid: {example.qid}")
+    print(f"*** Example {ex_index} ***")
+    print(f"qid: {example.qid}")
 
   question_tokens = tokenizer.tokenize(example.question)
-  context_tokens =  tokenizer.tokenize(example.context)
+  context_tokens = tokenizer.tokenize(example.context)
   answers_tokens = map(tokenizer.tokenize, example.answers)
 
   token_ids = []
@@ -242,14 +242,20 @@ def example_to_token_ids_segment_ids_label_ids(
     truncated_question_tokens = question_tokens[
       :max(boundary, max_seq_length - (len(answer_tokens) +
                                        len(context_tokens) + 4))]
+    # print(f"Context: Started at {len(question_tokens)} "
+    #       f"-> trunc to {len(truncated_question_tokens)}")
 
     truncated_context_tokens = context_tokens[
       :max(boundary, max_seq_length - (len(answer_tokens) +
                                        len(question_tokens) + 4))]
+    # print(f"Context: Started at {len(context_tokens)} "
+    #       f"-> trunc to {len(truncated_context_tokens)}")
 
     truncated_answer_tokens = answer_tokens[
       :max(boundary, max_seq_length - (len(question_tokens) +
                                        len(context_tokens) + 4))]
+    # print(f"Context: Started at {len(answer_tokens)} "
+    #       f"-> trunc to {len(truncated_answer_tokens)}")
 
     choice_tokens = []
     choice_segment_ids = []
@@ -262,8 +268,8 @@ def example_to_token_ids_segment_ids_label_ids(
     choice_tokens.append("[SEP]")
     choice_segment_ids.append(0)
 
-    for context_tokens in truncated_context_tokens:
-      choice_tokens.append(context_tokens)
+    for context_token in truncated_context_tokens:
+      choice_tokens.append(context_token)
       choice_segment_ids.append(0)
     choice_tokens.append("[SEP]")
     choice_segment_ids.append(0)
@@ -279,19 +285,16 @@ def example_to_token_ids_segment_ids_label_ids(
     token_ids.append(choice_token_ids)
     segment_ids.append(choice_segment_ids)
 
-    if ex_index < 5:
-      tf.logging.info("choice %s" % choice_idx)
-      tf.logging.info("tokens: %s" % " ".join(
-        [tokenization.printable_text(t) for t in choice_tokens]))
-      tf.logging.info("token ids: %s" % " ".join(
-        [str(x) for x in choice_token_ids]))
-      tf.logging.info("segment ids: %s" % " ".join(
-        [str(x) for x in choice_segment_ids]))
+    if ex_index < 20:
+      print("choice %s" % choice_idx)
+      print("tokens: %s" % " ".join([tokenization.printable_text(t) for t in choice_tokens]))
+      # tf.logging.info("token ids: %s" % " ".join([str(x) for x in choice_token_ids]))
+      # tf.logging.info("segment ids: %s" % " ".join([str(x) for x in choice_segment_ids]))
 
   label_ids = [example.label]
 
-  if ex_index < 5:
-    tf.logging.info("label: %s (id = %d)" % (example.label, label_ids[0]))
+  if ex_index < 20:
+    print("label: %s (id = %d)" % (example.label, label_ids[0]))
 
   return token_ids, segment_ids, label_ids
 

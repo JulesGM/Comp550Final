@@ -4,6 +4,8 @@ set -u
 VENV_PATH="$SLURM_TMPDIR/cur_venv"
 SOCIALIQA="$SLURM_TMPDIR/socialiqa"
 BERT_URL="https://storage.googleapis.com/bert_models/2018_10_18/cased_L-12_H-768_A-12.zip"
+# VOCAB_URL="https://raw.githubusercontent.com/microsoft/BlingFire/master/ldbsrc/bert_base_cased_tok/vocab.txt"
+
 BERT_FILE_NAME=$(python3 -c "print(\"$BERT_URL\".split(\"/\")[-1].split(\".\")[0])")
 echo $BERT_FILE_NAME
 BERT_DIR="$SLURM_TMPDIR/bert_model"
