@@ -105,7 +105,17 @@ def main(args):
 
     # Print just the files with good data
     print("\n==========")
+    print("== Good files ==")
     df_filtered = df[df['is_good']==True]
+    data_pts_list = df_filtered['num_data_pts'].values
+    for j, file_name in enumerate(df_filtered['file_name'].values):
+        print(file_name, data_pts_list[j])
+    print("==========\n")
+
+    # Print just the files with bad data
+    print("\n==========")
+    print("== Bad files ==")
+    df_filtered = df[df['is_good'] == False]
     data_pts_list = df_filtered['num_data_pts'].values
     for j, file_name in enumerate(df_filtered['file_name'].values):
         print(file_name, data_pts_list[j])

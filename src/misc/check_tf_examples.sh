@@ -3,8 +3,8 @@
 #SBATCH --ntasks=2
 #SBATCH --time=30:00
 #SBATCH --mem=32Gb
-#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_output.txt
-#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_error.txt
+#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/check_tf_logs/temp_output.txt
+#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/check_tf_logs/temp_error.txt
 # ============================================================================
 # Check that the pre-training tf-example files are in good shape
 #
@@ -26,7 +26,7 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 # File to take as input
 DATA_DIR_BASE="/network/home/gagnonju/shared/data/parallel_jobs_logs"
-DATA_DIR="$DATA_DIR_BASE/2019-12-10_filtered-out_lstm"
+DATA_DIR="$DATA_DIR_BASE/temp_dir"
 
 # TODO (potential): save dataframe
 
