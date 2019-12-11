@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=check_tf_examples
+#SBATCH --job-name=fix_tf_examples
 #SBATCH --ntasks=2
 #SBATCH --time=30:00
 #SBATCH --mem=32Gb
-#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_output.txt
-#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_error.txt
+#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/tmp/fixed_tf_logs/dec-10-a_nofilter_fixed_output-error.txt
+#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/tmp/fixed_tf_logs/dec-10-a_nofilter_fixed_output-error.txt
 # ============================================================================
 # Fix the pretraining tf-example files with Data Loss Error
 #
@@ -16,7 +16,7 @@
 #   DATA_DIR: which directory (of potentially corrupted tf-example files) to
 #             read from
 #   OUT_DIR: which directory to write fixed tf-example files to
-#   training related paramters (how many file out, batch size, etc.)
+#   ..training related paramters (how many file out, batch size, etc.)
 #
 #
 # Submut this file via sbatch
@@ -30,11 +30,11 @@ set -u # Close immidiately if we try to access a variable that doesn't exist.
 
 # File to take as input
 DATA_DIR_BASE="/network/home/gagnonju/shared/data/parallel_jobs_logs"
-DATA_DIR="$DATA_DIR_BASE/2019-12-10_filtered-out_lstm"
+DATA_DIR="$DATA_DIR_BASE/2019-12-09_filtered-out_nofilter"
 
 # Directory to write to for output
 OUT_DIR_BASE="/network/tmp1/chenant/sharing/comp-550/tmp/fixed_tf_logs"
-OUT_DIR="$OUT_DIR_BASE/dec-10-a_lstm_fixed"
+OUT_DIR="$OUT_DIR_BASE/dec-10-a_nofilter_fixed"
 
 # Number of output files to write
 NUM_OUT_FILES="30"
