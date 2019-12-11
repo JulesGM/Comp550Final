@@ -3,8 +3,8 @@
 #SBATCH --ntasks=2
 #SBATCH --time=30:00
 #SBATCH --mem=32Gb
-#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10_lstm_output.txt
-#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10_lstm_error.txt
+#SBATCH --output=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_output.txt
+#SBATCH --error=/network/tmp1/chenant/sharing/comp-550/tmp/check_tf_logs/dec-10-b_lstm_error.txt
 # ============================================================================
 # Check that the pre-training tf-example files are in good shape
 #

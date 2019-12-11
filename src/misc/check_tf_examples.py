@@ -72,7 +72,7 @@ def main(args):
     in_files = glob.glob(
         os.path.join(args.input_dir_path, args.file_glob)
     )
-    #in_files.sort()
+    in_files.sort()
     print(f"\nNumber of files found: {len(in_files)}\n")
 
     # ==
@@ -101,6 +101,14 @@ def main(args):
 
     print("\n==========")
     print(df)
+    print("==========\n")
+
+    # Print just the files with good data
+    print("\n==========")
+    df_filtered = df[df['is_good']==True]
+    data_pts_list = df_filtered['num_data_pts'].values
+    for j, file_name in enumerate(df_filtered['file_name'].values):
+        print(file_name, data_pts_list[j])
     print("==========\n")
 
     print("\n==========")
