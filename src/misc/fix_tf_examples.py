@@ -60,7 +60,7 @@ def readwrite_tf_files(args, in_files, writer):
             sharding_idx=args.sharding_idx,
             sharding_quantity=args.sharding_quantity,
             num_epochs=1,
-            parser_fn=tf_example_utils.build_filter_input_parser_fn(
+            parser_fn=tf_example_utils.build_masked_parser_fn(
                 args.sequence_length, args.max_predictions_per_seq)
         )
 
