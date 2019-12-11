@@ -13,6 +13,7 @@ except ImportError:
     pass
 import numpy as np
 import tensorflow as tf
+import tqdm
 import utils
 
 CLS_TOKEN = "[CLS]"
@@ -369,7 +370,25 @@ class WriteAsTfExample(TfRecordWriter):
         self._write_one(features)
 
 
-def build_filter_input_parser_fn(sample_len: int):
+def build_filter_input_parser_fn(sample_len: int, max_predictions_per_seq: int):
+    feature_description = {
+            "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "segment_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
+            "masked_lm_positions": tf.io.FixedLenFeature([max_predictions_per_seq], tf.int64),
+            "masked_lm_ids": tf.io.FixedLenFeature([max_predictions_per_seq], tf.int64),
+            "masked_lm_weights": tf.io.FixedLenFeature([max_predictions_per_seq], tf.float32),
+            "next_sentence_labels": tf.io.FixedLenFeature([1], tf.int64)
+    }
+
+    @tf.function
+    def parser_fn(single_record):
+        parsed_record = tf.io.parse_single_example(single_record,
+                                                   feature_description)
+        return parsed_record
+    return parser_fn
+
+def build_masked_parser_fn(sample_len: int):
     feature_description = {
             "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
             "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64),
@@ -383,6 +402,7 @@ def build_filter_input_parser_fn(sample_len: int):
                                                    feature_description)
         return parsed_record
     return parser_fn
+
 
 
 def tf_example_uniform_sampler(paths: List[utils.PathStr],
