@@ -370,7 +370,7 @@ class WriteAsTfExample(TfRecordWriter):
         self._write_one(features)
 
 
-def build_filter_input_parser_fn(sample_len: int, max_predictions_per_seq: int):
+def build_masked_parser_fn(sample_len: int, max_predictions_per_seq: int):
     feature_description = {
             "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
             "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64),
@@ -388,7 +388,7 @@ def build_filter_input_parser_fn(sample_len: int, max_predictions_per_seq: int):
         return parsed_record
     return parser_fn
 
-def build_masked_parser_fn(sample_len: int):
+def build_filter_input_parser_fn(sample_len: int):
     feature_description = {
             "input_ids": tf.io.FixedLenFeature([sample_len], tf.int64),
             "input_mask": tf.io.FixedLenFeature([sample_len], tf.int64),
