@@ -23,7 +23,7 @@ BERT_TRAIN_MAX_SEQ_LEN="128"
 BERT_TRAIN_MAX_PRED_PER_SEQ="20"
 BERT_NUM_TRAIN_STEPS="1000000000"   # num training steps, orig is 20, increase for actual pretraining
 BERT_NUM_WARMUP_STEPS="10"
-BERT_TRAIN_LEARNING_RATE="2e-5"
+BERT_TRAIN_LEARNING_RATE="2e-3"     # default: 2e-5
 SAVE_CHECKPOINTS_STEPS="1500"       # 1600 steps is approx. 10 minutes of training on good GPU
 USE_TPU="False"                     # no TPU to use yet
 
