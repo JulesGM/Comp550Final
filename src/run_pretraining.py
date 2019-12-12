@@ -24,7 +24,6 @@ from bert import optimization
 import tensorflow as tf
 
 flags = tf.flags
-
 FLAGS = flags.FLAGS
 
 ## Required parameters

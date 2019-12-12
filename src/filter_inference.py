@@ -197,7 +197,7 @@ class NBCFilter(FilterInferenceBase):
         bow_samples = tf.math.reduce_sum(one_hot, axis=1)
         prediction_scores = self._model.predict_proba(bow_samples.numpy())
 
-        return prediction_scores[1] > self._config["filter_threshold"]
+        return prediction_scores[:, 1] > self._config["filter_threshold"]
 
 # Map mapping the names of the different filter types to their class.
 # This allows us to receive their name by command-line argument, 
@@ -248,7 +248,7 @@ def main(args: argparse.Namespace):
         idx_to_word = [x.strip() for x in fin.read().strip().split("\n")]
     word_to_idx = {w: i for i, w in enumerate(idx_to_word)}
 
-    print(f"args.input_data_glob_pattern: {args.input_data_glob_pattern}")
+    logging.info(f"args.input_data_glob_pattern: {args.input_data_glob_pattern}")
     reader = tf_example_utils.read_from_tf_example(
         glob.glob(str(args.input_data_glob_pattern)), sample_len=args.max_seq_len,
         shuffle_buffer_size=args.shuffle_buffer_size,
@@ -278,7 +278,7 @@ def main(args: argparse.Namespace):
 
         last_few = np.zeros(10)
         for i, batch in enumerate(reader.batch(filter_.batch_size)):
-            print(f"BATCH {i}")
+            logging.info(f"BATCH {i}")
             start = time.time()
             if signaled_to_stop:
                 break
@@ -287,7 +287,7 @@ def main(args: argparse.Namespace):
                 break
             sent_as = [batch["input_ids"][i][batch["segment_ids"][i] == 0][1: -1]
                        for i in range(len(batch["input_ids"]))]
-            sent_bs = [batch["input_ids"][i][batch["segment_ids"][i] == 1]
+            sent_bs = [batch["input_ids"][i][batch["segment_ids"][i] == 1][:-1]
                        for i in range(len(batch["input_ids"]))]
 
             sents = sent_as + sent_bs
@@ -364,9 +364,9 @@ if __name__ == "__main__":
     parser.add_argument("--sharding_idx", type=int, default=None)
 
     args = parser.parse_args()
-    print("FROM WITHIN FILTER_INFERENCE.py")
+
     # Logging
-    FORMAT = '%(message)s'
+    FORMAT = f"filter_inference.py - {args.filter_type}: %(message)s"
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger()
     logger.setLevel(args.verbosity)
